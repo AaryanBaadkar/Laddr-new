@@ -1,7 +1,4 @@
 const express = require('express');
-const multer = require('multer');
-const csv = require('csv-parser');
-const fs = require('fs');
 const Property = require('../models/Property');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
@@ -71,39 +68,18 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// CSV upload (admin only)
-const upload = multer({ dest: 'uploads/' });
-router.post('/upload-csv', authenticateToken, requireAdmin, upload.single('csv'), async (req, res) => {
+// Import properties from CSV (admin only)
+router.post('/import-csv', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const results = [];
-    fs.createReadStream(req.file.path)
-      .pipe(csv())
-      .on('data', (data) => results.push(data))
-      .on('end', async () => {
-        // Process and save properties
-        for (const row of results) {
-          const property = new Property({
-            title: row.title,
-            price: parseFloat(row.price),
-            carpetArea: parseFloat(row.carpetArea),
-            coveredArea: parseFloat(row.coveredArea),
-            bedrooms: parseInt(row.bedrooms),
-            bathrooms: parseInt(row.bathrooms),
-            furnishingType: row.furnishingType,
-            locationName: row.locationName,
-            coordinates: { lat: parseFloat(row.lat), lng: parseFloat(row.lng) },
-            amenities: row.amenities ? row.amenities.split(',') : [],
-            developer: row.developer,
-            floor: row.floor,
-            society: row.society,
-            powerBackup: row.powerBackup === 'true',
-            parking: row.parking === 'true',
-          });
-          await property.save();
-        }
-        fs.unlinkSync(req.file.path); // Remove uploaded file
-        res.json({ message: 'Properties imported successfully' });
-      });
+    // This endpoint can trigger the import script
+    const { exec } = require('child_process');
+    exec('npm run import', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`exec error: ${error}`);
+        return res.status(500).json({ message: 'Import failed', error: error.message });
+      }
+      res.json({ message: 'Properties import initiated', output: stdout });
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

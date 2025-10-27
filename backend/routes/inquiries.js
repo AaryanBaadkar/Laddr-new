@@ -40,7 +40,12 @@ router.post('/', async (req, res) => {
 });
 
 // Get inquiries (admin only)
-router.get('/', authenticateToken, require('../middleware/auth').requireAdmin, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  
   try {
     const inquiries = await Inquiry.find().populate('propertyId').populate('userId');
     res.json(inquiries);
