@@ -1,107 +1,228 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import axios from 'axios';
 
 const Dashboard = () => {
-  const [savedProperties, setSavedProperties] = useState([]);
-  const [recentViews, setRecentViews] = useState([]);
+  const [user, setUser] = useState({ name: 'ABC' });
+  const [metrics, setMetrics] = useState({
+    propertiesSaved: 24,
+    averageROI: 7.2,
+    rentalYield: 5.8,
+    riskIndex: 'Low'
+  });
+  const [portfolio, setPortfolio] = useState({
+    name: 'Oakwood Apartments',
+    purchaseDate: 'March 2021',
+    purchasePrice: 425000,
+    currentValue: 503625,
+    ytdGrowth: 18.5,
+    target: 700000
+  });
+  const [recentActivity, setRecentActivity] = useState([
+    { type: 'watchlist', property: '3-bedroom flat in Kensington', time: '2 hours ago' },
+    { type: 'compare', property: '2 houses in Manchester area', time: 'Yesterday' },
+    { type: 'roi', property: 'Brighton property +0.8%', time: '2 days ago' }
+  ]);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const token = localStorage.getItem('token');
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
         const response = await axios.get('http://localhost:5000/api/auth/me', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        // Mock data for now
-        setSavedProperties([]);
-        setRecentViews([]);
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
+        setUser(response.data);
       }
-    };
-    fetchDashboardData();
-  }, []);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  const getActivityIcon = (type) => {
+    switch (type) {
+      case 'watchlist': return '🔖';
+      case 'compare': return '⚖️';
+      case 'roi': return '📈';
+      default: return '📋';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900">Laddr</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm">
+                💡 Consider properties in Mumbai for better ROI
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Welcome Section */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Welcome back, {user.name}
+          </h2>
+          <p className="text-gray-600 text-lg">
+            Your portfolio is performing well this month.
+          </p>
+        </div>
+
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Properties Saved</p>
+                <p className="text-2xl font-bold text-gray-900">{metrics.propertiesSaved}</p>
+              </div>
+              <div className="text-2xl">🏠</div>
+            </div>
+          </div>
           
-          <div className="mb-8">
-            <Link
-              to="/explore"
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Explore Properties
-            </Link>
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Average ROI</p>
+                <p className="text-2xl font-bold text-gray-900">{metrics.averageROI}%</p>
+              </div>
+              <div className="text-2xl">📈</div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Rental Yield Average</p>
+                <p className="text-2xl font-bold text-gray-900">{metrics.rentalYield}%</p>
+              </div>
+              <div className="text-2xl">📊</div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Risk Index</p>
+                <p className="text-2xl font-bold text-gray-900">{metrics.riskIndex}</p>
+              </div>
+              <div className="text-2xl">📊</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Price Trends */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Price Trends</h3>
+              <a href="#" className="text-sm text-blue-600 hover:text-blue-800">View details</a>
+            </div>
+            <div className="h-48 bg-gray-100 rounded flex items-center justify-center">
+              <p className="text-gray-500">Candlestick Chart</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
+          {/* ROI Distribution */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">ROI Distribution</h3>
+              <a href="#" className="text-sm text-blue-600 hover:text-blue-800">View details</a>
+            </div>
+            <div className="h-48 bg-gray-100 rounded flex items-center justify-center">
+              <p className="text-gray-500">Histogram Chart</p>
+            </div>
+          </div>
+
+          {/* Rental Yield Split */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Rental Yield Split</h3>
+              <a href="#" className="text-sm text-blue-600 hover:text-blue-800">View details</a>
+            </div>
+            <div className="h-48 bg-gray-100 rounded flex items-center justify-center">
+              <p className="text-gray-500">Pie Chart</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Portfolio and Map Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Property Portfolio */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Property Portfolio</h3>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold text-gray-900">{portfolio.name}</h4>
+                <p className="text-sm text-gray-600">
+                  Purchased: {portfolio.purchaseDate} • ${portfolio.purchasePrice.toLocaleString()}
+                </p>
+                <p className="font-semibold text-gray-900 mt-2">
+                  Current Value: ${portfolio.currentValue.toLocaleString()}
+                </p>
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-purple-600 h-2 rounded-full" 
+                      style={{ width: `${(portfolio.currentValue / portfolio.target) * 100}%` }}
+                    ></div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Saved Properties</dt>
-                      <dd className="text-lg font-medium text-gray-900">{savedProperties.length}</dd>
-                    </dl>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-sm text-gray-600">Target: ${portfolio.target.toLocaleString()}</span>
+                    <span className="text-sm text-green-600 font-semibold">
+                      +{portfolio.ytdGrowth}% YTD
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Recent Views</dt>
-                      <dd className="text-lg font-medium text-gray-900">{recentViews.length}</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link
-                to="/compare"
-                className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow"
-              >
-                <h3 className="text-lg font-semibold mb-2">Compare Properties</h3>
-                <p className="text-gray-600">Side-by-side comparison of saved properties</p>
-              </Link>
-              <Link
-                to="/analytics"
-                className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow"
-              >
-                <h3 className="text-lg font-semibold mb-2">View Analytics</h3>
-                <p className="text-gray-600">Price trends and neighborhood insights</p>
-              </Link>
-              <Link
-                to="/contact"
-                className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow"
-              >
-                <h3 className="text-lg font-semibold mb-2">Contact Support</h3>
-                <p className="text-gray-600">Get help or send inquiries</p>
-              </Link>
+          {/* Property Hotspots */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Property Hotspots</h3>
+              <a href="#" className="text-sm text-blue-600 hover:text-blue-800">View full map</a>
             </div>
+            <div className="h-64 bg-gray-100 rounded flex items-center justify-center">
+              <p className="text-gray-500">Interactive Map with Hotspots</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+            <a href="#" className="text-sm text-blue-600 hover:text-blue-800">View all</a>
+          </div>
+          <div className="space-y-4">
+            {recentActivity.map((activity, index) => (
+              <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                <span className="text-xl">{getActivityIcon(activity.type)}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    {activity.type === 'watchlist' && 'Added to watchlist:'}
+                    {activity.type === 'compare' && 'Compared properties:'}
+                    {activity.type === 'roi' && 'ROI increase alert:'}
+                  </p>
+                  <p className="text-sm text-gray-600">{activity.property}</p>
+                </div>
+                <span className="text-sm text-gray-500">{activity.time}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -10,6 +10,7 @@ import ComparePage from './pages/ComparePage.jsx';
 import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import ContactPage from './pages/ContactPage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </div>
     </Router>
