@@ -1,13 +1,17 @@
 const express = require('express');
 const Property = require('../models/Property');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+const { importProperties } = require('../scripts/importProperties');
 
 const router = express.Router();
+const { findByCsvId } = require('../utils/propertyCsv');
 
 // Get properties with optional bounds filter
 router.get('/', async (req, res) => {
   try {
-    const { north, south, east, west } = req.query;
+    const { north, south, east, west, search, city, locationName, areaName } = req.query;
     let query = {};
 
     if (north && south && east && west) {
@@ -17,7 +21,22 @@ router.get('/', async (req, res) => {
       };
     }
 
-    const properties = await Property.find(query);
+    if (search) {
+      const re = new RegExp(search, 'i');
+      query.$or = [
+        { title: re },
+        { location: re },
+        { locationName: re },
+        { areaName: re },
+        { city: re }
+      ];
+    }
+
+    if (city) query.city = new RegExp(`^${city}$`, 'i');
+    if (locationName) query.locationName = new RegExp(locationName, 'i');
+    if (areaName) query.areaName = new RegExp(areaName, 'i');
+
+    const properties = await Property.find(query).limit(500);
     res.json(properties);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -28,8 +47,29 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const property = await Property.findById(req.params.id);
-    if (!property) return res.status(404).json({ message: 'Property not found' });
+    if (!property) {
+      // Fallback to CSV by CSV ID
+      const fromCsv = await findByCsvId(req.params.id);
+      if (!fromCsv) return res.status(404).json({ message: 'Property not found' });
+      return res.json(fromCsv);
+    }
     res.json(property);
+  } catch (error) {
+    // If invalid ObjectId or error, also try CSV fallback
+    try {
+      const fromCsv = await findByCsvId(req.params.id);
+      if (fromCsv) return res.json(fromCsv);
+    } catch (e) {}
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Direct CSV endpoint by CSV ID
+router.get('/csv/:csvId', async (req, res) => {
+  try {
+    const fromCsv = await findByCsvId(req.params.csvId);
+    if (!fromCsv) return res.status(404).json({ message: 'Property not found' });
+    res.json(fromCsv);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -82,6 +122,16 @@ router.post('/import-csv', authenticateToken, requireAdmin, async (req, res) => 
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// Upload CSV (alias) — matches frontend AdminDashboard; ignores uploaded file and imports repo CSV
+router.post('/upload-csv', authenticateToken, requireAdmin, upload.single('csv'), async (req, res) => {
+  try {
+    const result = await importProperties();
+    res.json({ message: 'Properties imported from properties.csv', ...result });
+  } catch (error) {
+    res.status(500).json({ message: 'Import failed', error: error.message });
   }
 });
 

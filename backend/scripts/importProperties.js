@@ -1,84 +1,47 @@
 const mongoose = require('mongoose');
-const csv = require('csv-parser');
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
+const csv = require('csv-parser');
 const Property = require('../models/Property');
+const { parseBoolean, parseNumber, parseAmenities } = require('../utils/propertyCsv');
 require('dotenv').config();
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/real-estate', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.log(err));
-
-// Function to parse boolean values from CSV
-const parseBoolean = (value) => {
-  if (value === '1' || value === 'Y' || value === 'true') return true;
-  if (value === '0' || value === 'N' || value === 'false') return false;
-  return false;
-};
-
-// Function to parse number values
-const parseNumber = (value) => {
-  if (!value || value === 'NA' || value === '') return null;
-  const num = parseFloat(value);
-  return isNaN(num) ? null : num;
-};
-
-// Function to parse amenities from CSV columns
-const parseAmenities = (row) => {
-  const amenities = [];
-  const amenityColumns = [
-    'Power Back Up', 'Lift', 'Rain Water Harvesting', 'Club House', 'Swimming Pool',
-    'Gymnasium', 'Park', 'Parking', 'Security', 'Water Storage', 'Private Terrace/Garden',
-    'Vaastu Compliant', 'Service/Goods Lift', 'Air Conditioned', 'Visitor Parking',
-    'Intercom Facility', 'Maintenance Staff', 'Waste Disposal', 'Laundry Service',
-    'Internet/Wi-Fi Connectivity', 'DTH Television Facility', 'RO Water System',
-    'Banquet Hall', 'Bar/Lounge', 'Cafeteria/Food Court', 'Conference Room',
-    'Piped Gas', 'Jogging and Strolling Track', 'Outdoor Tennis Courts'
-  ];
-  
-  amenityColumns.forEach(column => {
-    if (row[column] === '1' || row[column] === 'Y') {
-      amenities.push(column);
-    }
-  });
-  
-  return amenities;
-};
-
 async function importProperties() {
+  const shouldConnect = mongoose.connection.readyState !== 1;
+  let imported = 0;
+  let errors = 0;
   try {
+    if (shouldConnect) {
+      await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/real-estate', {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      });
+      console.log('MongoDB connected (importer)');
+    }
+
     console.log('Starting property import...');
-    
-    // Clear existing properties
+
     await Property.deleteMany({});
     console.log('Cleared existing properties');
-    
+
     const results = [];
     const csvPath = path.join(__dirname, '../../properties.csv');
-    
-    // Read CSV file
-    fs.createReadStream(csvPath)
-      .pipe(csv())
-      .on('data', (data) => results.push(data))
-      .on('end', async () => {
-        console.log(`Found ${results.length} properties in CSV`);
-        
-        let imported = 0;
-        let errors = 0;
-        
-        for (const row of results) {
-          try {
-            // Extract coordinates (you may need to add these to your CSV or use a geocoding service)
-            const coordinates = {
-              lat: null, // Add latitude if available in CSV
-              lng: null  // Add longitude if available in CSV
-            };
-            
-            const property = new Property({
+
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(csvPath)
+        .pipe(csv())
+        .on('data', (data) => results.push(data))
+        .on('error', (err) => reject(err))
+        .on('end', () => resolve());
+    });
+
+    console.log(`Found ${results.length} properties in CSV`);
+
+    for (const row of results) {
+      try {
+        const coordinates = { lat: null, lng: null };
+
+        const property = new Property({
               id: row.ID,
               title: row.Property || `${row.bedroom} BHK Flat`,
               projectName: row['Project Name'],
@@ -157,35 +120,40 @@ async function importProperties() {
               // Legacy fields
               locationName: row['Area Name'],
               furnishingType: row['furnished Type']
-            });
-            
-            await property.save();
-            imported++;
-            
-            if (imported % 100 === 0) {
-              console.log(`Imported ${imported} properties...`);
-            }
-            
-          } catch (error) {
-            console.error(`Error importing property ${row.ID}:`, error.message);
-            errors++;
-          }
+        });
+
+        await property.save();
+        imported++;
+
+        if (imported % 100 === 0) {
+          console.log(`Imported ${imported} properties...`);
         }
-        
-        console.log(`Import completed!`);
-        console.log(`Successfully imported: ${imported} properties`);
-        console.log(`Errors: ${errors} properties`);
-        
-        mongoose.connection.close();
-      });
-      
+      } catch (error) {
+        console.error(`Error importing property ${row.ID}:`, error.message);
+        errors++;
+      }
+    }
+
+    console.log('Import completed!');
+    console.log(`Successfully imported: ${imported} properties`);
+    console.log(`Errors: ${errors} properties`);
   } catch (error) {
     console.error('Import failed:', error);
-    mongoose.connection.close();
+    throw error;
+  } finally {
+    if (shouldConnect) {
+      await mongoose.connection.close();
+      console.log('MongoDB connection closed (importer)');
+    }
   }
+  return { imported, errors };
 }
 
-// Run the import
-importProperties();
+// Allow running as a script: only execute when called directly
+if (require.main === module) {
+  importProperties();
+}
+
+module.exports = { importProperties };
 
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import axios from 'axios';
 import 'leaflet/dist/leaflet.css';
@@ -15,6 +16,10 @@ L.Icon.Default.mergeOptions({
 const ExplorePage = () => {
   const [properties, setProperties] = useState([]);
   const [mapBounds, setMapBounds] = useState(null);
+  const locationHook = useLocation();
+  const navigate = useNavigate();
+  const params = new URLSearchParams(locationHook.search);
+  const search = params.get('search') || '';
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [areaOverview, setAreaOverview] = useState({
     averagePrice: 450000,
@@ -41,7 +46,8 @@ const ExplorePage = () => {
 
   useEffect(() => {
     fetchProperties();
-  }, [mapBounds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapBounds, search]);
 
   const fetchProperties = async () => {
     try {
@@ -51,6 +57,9 @@ const ExplorePage = () => {
         east: mapBounds.getEast(),
         west: mapBounds.getWest()
       } : {};
+      if (search) {
+        params.search = search;
+      }
       const response = await axios.get('http://localhost:5000/api/properties', { params });
       setProperties(response.data);
     } catch (err) {
@@ -73,11 +82,23 @@ const ExplorePage = () => {
         <div className="absolute top-4 left-4 z-10">
           <div className="bg-white rounded-lg shadow-lg p-4 w-80">
             <div className="relative">
-              <input
-                type="text"
-                placeholder="Search for a city or region"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const value = e.currentTarget.searchBox.value.trim();
+                if (value.length === 0) {
+                  navigate('/explore');
+                } else {
+                  navigate(`/explore?search=${encodeURIComponent(value)}`);
+                }
+              }}>
+                <input
+                  name="searchBox"
+                  defaultValue={search}
+                  type="text"
+                  placeholder="Search for a city, area, location..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </form>
               <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
               </svg>

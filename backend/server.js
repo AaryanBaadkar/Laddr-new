@@ -6,6 +6,8 @@ require('dotenv').config();
 require('./config/passport');
 
 const app = express();
+const { importProperties } = require('./scripts/importProperties');
+const Property = require('./models/Property');
 
 // Middleware
 app.use(cors());
@@ -18,7 +20,20 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/real-esta
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('MongoDB connected'))
+.then(async () => {
+  console.log('MongoDB connected');
+  try {
+    const propertiesCount = await Property.countDocuments();
+    if (propertiesCount === 0) {
+      console.log('No properties found. Importing from properties.csv...');
+      await importProperties();
+    } else {
+      console.log(`Properties collection has ${propertiesCount} documents. Skipping import.`);
+    }
+  } catch (e) {
+    console.error('Failed to check/import properties:', e.message);
+  }
+})
 .catch(err => console.log(err));
 
 // Routes

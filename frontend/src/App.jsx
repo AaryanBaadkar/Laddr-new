@@ -11,11 +11,13 @@ import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import ContactPage from './pages/ContactPage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import Navbar from './components/Navbar.jsx';
 
 function App() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
+        <Navbar />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
