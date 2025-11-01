@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const AnalyticsPage = () => {
   const [selectedCity, setSelectedCity] = useState('San Francisco');
@@ -9,17 +10,55 @@ const AnalyticsPage = () => {
   const [selectedStrategy, setSelectedStrategy] = useState('Capital Appreciation');
   const [selectedHorizon, setSelectedHorizon] = useState('Short-Term (1-3 years)');
   const [timeframe, setTimeframe] = useState('5 Years');
-  
+
+  const [comparedProperties, setComparedProperties] = useState([]);
+
   const [priceTrends, setPriceTrends] = useState({
     current: 8.5,
     last5Years: 1.2,
-    data: [
-      { year: 2019, price: 100000 },
-      { year: 2020, price: 120000 },
-      { year: 2021, price: 150000 },
-      { year: 2022, price: 180000 },
-      { year: 2023, price: 200000 }
-    ]
+    data: {
+      '5': [
+        { year: 2019, price: 100000 },
+        { year: 2020, price: 120000 },
+        { year: 2021, price: 150000 },
+        { year: 2022, price: 180000 },
+        { year: 2023, price: 200000 }
+      ],
+      '10': [
+        { year: 2014, price: 80000 },
+        { year: 2015, price: 85000 },
+        { year: 2016, price: 90000 },
+        { year: 2017, price: 95000 },
+        { year: 2018, price: 100000 },
+        { year: 2019, price: 110000 },
+        { year: 2020, price: 130000 },
+        { year: 2021, price: 160000 },
+        { year: 2022, price: 190000 },
+        { year: 2023, price: 210000 }
+      ],
+      '20': [
+        { year: 2004, price: 60000 },
+        { year: 2005, price: 65000 },
+        { year: 2006, price: 70000 },
+        { year: 2007, price: 75000 },
+        { year: 2008, price: 80000 },
+        { year: 2009, price: 85000 },
+        { year: 2010, price: 90000 },
+        { year: 2011, price: 95000 },
+        { year: 2012, price: 100000 },
+        { year: 2013, price: 105000 },
+        { year: 2014, price: 110000 },
+        { year: 2015, price: 115000 },
+        { year: 2016, price: 120000 },
+        { year: 2017, price: 125000 },
+        { year: 2018, price: 130000 },
+        { year: 2019, price: 135000 },
+        { year: 2020, price: 140000 },
+        { year: 2021, price: 145000 },
+        { year: 2022, price: 150000 },
+        { year: 2023, price: 155000 }
+      ]
+    }
   });
 
   const [roiForecast, setRoiForecast] = useState({
@@ -65,6 +104,22 @@ const AnalyticsPage = () => {
       case 'Stable': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getCombinedChartData = () => {
+    if (comparedProperties.length === 0) return [];
+    const timeframeKey = timeframe.split(' ')[0];
+    const years = comparedProperties[0].data[timeframeKey].map(item => item.year);
+    return years.map(year => {
+      const dataPoint = { year };
+      comparedProperties.forEach(property => {
+        const propertyData = property.data[timeframeKey].find(item => item.year === year);
+        if (propertyData) {
+          dataPoint[property.name] = propertyData.price;
+        }
+      });
+      return dataPoint;
+    });
   };
 
   return (
@@ -211,8 +266,26 @@ const AnalyticsPage = () => {
             <div className="text-sm text-green-600">Last 5 Years +{priceTrends.last5Years}%</div>
           </div>
           
-          <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-            <p className="text-gray-500">Line Graph: Price Trends 2019-2023</p>
+          <div className="h-64 bg-white rounded-lg border mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={getCombinedChartData()}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="year" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Price']} />
+                <Legend />
+                {comparedProperties.map((property) => (
+                  <Line
+                    key={property.id}
+                    type="monotone"
+                    dataKey={property.name}
+                    stroke={property.color}
+                    strokeWidth={2}
+                    name={property.name}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
           </div>
           
           <div className="flex justify-between items-center">
@@ -232,11 +305,93 @@ const AnalyticsPage = () => {
               ))}
             </div>
             <div className="flex space-x-2">
-              {['Compare City A', 'Compare City B', 'Compare City C'].map((city) => (
-                <button key={city} className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-                  {city}
-                </button>
-              ))}
+              <button
+                onClick={() => {
+                  if (comparedProperties.length > 0) {
+                    setComparedProperties(comparedProperties.slice(0, -1));
+                  }
+                }}
+                disabled={comparedProperties.length === 0}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  comparedProperties.length === 0
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+                - Remove City
+              </button>
+              <button
+                onClick={() => {
+                  if (comparedProperties.length < 3) {
+                    const colors = ['#3B82F6', '#EF4444', '#10B981'];
+                    const cities = ['New York', 'Los Angeles', 'Chicago'];
+                    const availableCities = cities.filter(city =>
+                      !comparedProperties.some(prop => prop.name === city)
+                    );
+                    if (availableCities.length > 0) {
+                      const newCity = availableCities[0];
+                      const newColor = colors[comparedProperties.length];
+                      const newProperty = {
+                        id: comparedProperties.length + 1,
+                        name: newCity,
+                        color: newColor,
+                        data: {
+                          '5': [
+                            { year: 2019, price: 80000 + comparedProperties.length * 10000 },
+                            { year: 2020, price: 95000 + comparedProperties.length * 10000 },
+                            { year: 2021, price: 120000 + comparedProperties.length * 10000 },
+                            { year: 2022, price: 150000 + comparedProperties.length * 10000 },
+                            { year: 2023, price: 170000 + comparedProperties.length * 10000 }
+                          ],
+                          '10': [
+                            { year: 2014, price: 60000 + comparedProperties.length * 8000 },
+                            { year: 2015, price: 65000 + comparedProperties.length * 8000 },
+                            { year: 2016, price: 70000 + comparedProperties.length * 8000 },
+                            { year: 2017, price: 75000 + comparedProperties.length * 8000 },
+                            { year: 2018, price: 80000 + comparedProperties.length * 8000 },
+                            { year: 2019, price: 85000 + comparedProperties.length * 8000 },
+                            { year: 2020, price: 100000 + comparedProperties.length * 8000 },
+                            { year: 2021, price: 130000 + comparedProperties.length * 8000 },
+                            { year: 2022, price: 160000 + comparedProperties.length * 8000 },
+                            { year: 2023, price: 180000 + comparedProperties.length * 8000 }
+                          ],
+                          '20': [
+                            { year: 2004, price: 40000 + comparedProperties.length * 6000 },
+                            { year: 2005, price: 45000 + comparedProperties.length * 6000 },
+                            { year: 2006, price: 50000 + comparedProperties.length * 6000 },
+                            { year: 2007, price: 55000 + comparedProperties.length * 6000 },
+                            { year: 2008, price: 60000 + comparedProperties.length * 6000 },
+                            { year: 2009, price: 65000 + comparedProperties.length * 6000 },
+                            { year: 2010, price: 70000 + comparedProperties.length * 6000 },
+                            { year: 2011, price: 75000 + comparedProperties.length * 6000 },
+                            { year: 2012, price: 80000 + comparedProperties.length * 6000 },
+                            { year: 2013, price: 85000 + comparedProperties.length * 6000 },
+                            { year: 2014, price: 90000 + comparedProperties.length * 6000 },
+                            { year: 2015, price: 95000 + comparedProperties.length * 6000 },
+                            { year: 2016, price: 100000 + comparedProperties.length * 6000 },
+                            { year: 2017, price: 105000 + comparedProperties.length * 6000 },
+                            { year: 2018, price: 110000 + comparedProperties.length * 6000 },
+                            { year: 2019, price: 115000 + comparedProperties.length * 6000 },
+                            { year: 2020, price: 120000 + comparedProperties.length * 6000 },
+                            { year: 2021, price: 125000 + comparedProperties.length * 6000 },
+                            { year: 2022, price: 130000 + comparedProperties.length * 6000 },
+                            { year: 2023, price: 135000 + comparedProperties.length * 6000 }
+                          ]
+                        }
+                      };
+                      setComparedProperties([...comparedProperties, newProperty]);
+                    }
+                  }
+                }}
+                disabled={comparedProperties.length >= 3}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  comparedProperties.length >= 3
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                }`}
+              >
+                + Add City ({comparedProperties.length}/3)
+              </button>
             </div>
           </div>
         </div>
@@ -250,8 +405,17 @@ const AnalyticsPage = () => {
             <div className="text-sm text-green-600">Projected CAGR +{roiForecast.projectedCAGR}%</div>
           </div>
           
-          <div className="h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-            <p className="text-gray-500">Bar Chart: ROI Forecast by Period</p>
+          <div className="h-48 bg-white rounded-lg border">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={roiForecast.data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="period" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`${value}%`, 'ROI']} />
+                <Legend />
+                <Bar dataKey="value" fill="#3B82F6" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
@@ -264,8 +428,17 @@ const AnalyticsPage = () => {
             <div className="text-sm text-green-600">Average Yield +{rentalYield.change}%</div>
           </div>
           
-          <div className="h-48 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-            <p className="text-gray-500">Bar Chart: Rental Yield by Neighborhood</p>
+          <div className="h-48 bg-white rounded-lg border mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={rentalYield.data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="neighborhood" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`${value}%`, 'Yield']} />
+                <Legend />
+                <Bar dataKey="value" fill="#10B981" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
           
           <div className="flex space-x-2">
