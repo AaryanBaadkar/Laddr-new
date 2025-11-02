@@ -20,6 +20,7 @@ const propertySchema = new mongoose.Schema({
   location: { type: String },
   areaName: { type: String },
   city: { type: String },
+  locality: { type: String },
   landmark: { type: String },
   
   // Pricing
