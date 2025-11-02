@@ -33,14 +33,23 @@ const parseAmenities = (row) => {
 };
 
 const mapRowToProperty = (row) => {
-  const coordinates = { lat: null, lng: null };
+  // Read latitude and longitude from CSV
+  const lat = parseNumber(row.latitude) || parseNumber(row.Latitude);
+  const lng = parseNumber(row.Longitude) || parseNumber(row.longitude);
+  const coordinates = { 
+    lat: lat || null, 
+    lng: lng || null 
+  };
+  const propertyId = row.ID;
   return {
-    id: row.ID,
+    id: propertyId,
+    _id: propertyId, // Add _id for MongoDB compatibility
     title: row.Property || `${row.bedroom} BHK Flat`,
     projectName: row['Project Name'],
     developer: row.Developer,
 
     propertyType: row['Type of Property'],
+    typeOfProperty: row['Type of Property'], // Alias for frontend compatibility
     bedrooms: parseNumber(row.bedroom),
     bathrooms: parseNumber(row.Bathroom),
     carpetArea: parseNumber(row['Carpet Area']),
@@ -51,6 +60,7 @@ const mapRowToProperty = (row) => {
     location: row.Location,
     areaName: row['Area Name'],
     city: row.City,
+    locality: row.Locality,
     landmark: row.Landmark,
 
     price: parseNumber(row.Price),
@@ -136,6 +146,75 @@ const findByCsvId = async (csvId) => {
   return mapRowToProperty(row);
 };
 
+// Get all properties from CSV with optional filtering
+const getPropertiesFromCsv = async (filters = {}) => {
+  const rows = await readCsvAll();
+  let properties = rows.map(mapRowToProperty);
+
+  // Filter by map bounds (latitude/longitude)
+  if (filters.north && filters.south && filters.east && filters.west) {
+    const north = parseFloat(filters.north);
+    const south = parseFloat(filters.south);
+    const east = parseFloat(filters.east);
+    const west = parseFloat(filters.west);
+
+    properties = properties.filter(property => {
+      if (!property.coordinates || !property.coordinates.lat || !property.coordinates.lng) {
+        return false;
+      }
+      const lat = property.coordinates.lat;
+      const lng = property.coordinates.lng;
+      return lat >= south && lat <= north && lng >= west && lng <= east;
+    });
+  }
+
+  // Filter by search term
+  if (filters.search) {
+    const searchLower = filters.search.toLowerCase();
+    properties = properties.filter(property => {
+      const searchFields = [
+        property.title,
+        property.projectName,
+        property.locationName,
+        property.areaName,
+        property.city,
+        property.locality,
+        property.landmark
+      ].filter(Boolean).map(f => f.toLowerCase());
+      
+      return searchFields.some(field => field.includes(searchLower));
+    });
+  }
+
+  // Filter by city
+  if (filters.city) {
+    const cityLower = filters.city.toLowerCase();
+    properties = properties.filter(property => 
+      property.city && property.city.toLowerCase() === cityLower
+    );
+  }
+
+  // Filter by location name
+  if (filters.locationName) {
+    const locationLower = filters.locationName.toLowerCase();
+    properties = properties.filter(property =>
+      property.locationName && property.locationName.toLowerCase().includes(locationLower)
+    );
+  }
+
+  // Filter by area name
+  if (filters.areaName) {
+    const areaLower = filters.areaName.toLowerCase();
+    properties = properties.filter(property =>
+      property.areaName && property.areaName.toLowerCase().includes(areaLower)
+    );
+  }
+
+  // Limit results
+  const limit = parseInt(filters.limit) || 1000;
+  return properties.slice(0, limit);
+};
+
 module.exports = {
   parseBoolean,
   parseNumber,
@@ -143,6 +222,7 @@ module.exports = {
   mapRowToProperty,
   readCsvAll,
   findByCsvId,
+  getPropertiesFromCsv,
 };
 
 
