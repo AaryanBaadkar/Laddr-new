@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const ComparePage = () => {
   const [properties, setProperties] = useState([]);
@@ -89,6 +91,174 @@ const ComparePage = () => {
       }
     };
   }, []);
+
+  // Generate PDF report function
+  const generatePDFReport = async () => {
+    if (properties.length === 0) return;
+
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    let yPosition = margin;
+
+    // Add title
+    pdf.setFontSize(20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Property Comparison Report', margin, yPosition);
+    yPosition += 15;
+
+    // Add date
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, margin, yPosition);
+    yPosition += 20;
+
+    // Define table data
+    const tableData = [
+      ['Property Name', ...properties.map(p => p.projectName || p.title || 'Property')],
+      ['ID', ...properties.map(p => p._id || p.id || 'N/A')],
+      ['Location', ...properties.map(p => `${p.areaName || p.locationName || 'N/A'}${p.locality ? `, ${p.locality}` : ''}${p.city ? `, ${p.city}` : ''}`)],
+      ['Property Type', ...properties.map(p => p.propertyType || 'N/A')],
+      ['Price', ...properties.map(p => p.price ? `₹${p.price.toLocaleString()}` : 'N/A')],
+      ['Bedrooms', ...properties.map(p => p.bedrooms || 'N/A')],
+      ['Bathrooms', ...properties.map(p => p.bathrooms || 'N/A')],
+      ['Carpet Area', ...properties.map(p => p.carpetArea ? `${p.carpetArea} ${p.carpetAreaUnit || 'sqft'}` : 'N/A')],
+      ['Covered Area', ...properties.map(p => p.coveredArea ? `${p.coveredArea} ${p.coveredAreaUnit || 'sqft'}` : 'N/A')],
+      ['Sqft Price', ...properties.map(p => p.sqftPrice ? `₹${p.sqftPrice.toLocaleString()}` : 'N/A')],
+      ['Booking Amount', ...properties.map(p => p.bookingAmount ? `₹${p.bookingAmount.toLocaleString()}` : 'N/A')],
+      ['Possession Status', ...properties.map(p => p.possessionStatus || 'N/A')],
+      ['Availability Starts From', ...properties.map(p => p.availabilityStartsFrom || 'N/A')],
+      ['Floor No', ...properties.map(p => p.floorNo || 'N/A')],
+      ['Floors', ...properties.map(p => p.floors || 'N/A')],
+      ['Floor Data', ...properties.map(p => p.floorData || 'N/A')],
+      ['Ownership Type', ...properties.map(p => p.ownershipType || 'N/A')],
+      ['Furnished Type', ...properties.map(p => p.furnishedType || 'N/A')],
+      ['Commercial', ...properties.map(p => p.commercial || 'N/A')],
+      ['Approved Authority Name', ...properties.map(p => p.approvedAuthorityName || 'N/A')],
+      ['RERA', ...properties.map(p => p.rera || 'N/A')],
+      ['Amenities', ...properties.map(p => p.amenities && p.amenities.length > 0 ? p.amenities.join(', ') : 'N/A')],
+      ['Flooring Type', ...properties.map(p => p.flooringType || 'N/A')],
+      ['Facing', ...properties.map(p => p.facing || 'N/A')],
+      ['Amenities Facing', ...properties.map(p => p.amenitiesFacing || 'N/A')],
+      ['Electricity Status', ...properties.map(p => p.electricityStatus || 'N/A')],
+      ['Water Status', ...properties.map(p => p.waterStatus || 'N/A')],
+      ['Maintenance Type', ...properties.map(p => p.maintenanceType || 'N/A')],
+      ['Maintenance Charges', ...properties.map(p => p.maintenanceCharges ? `₹${p.maintenanceCharges.toLocaleString()}` : 'N/A')],
+      ['Power Backup', ...properties.map(p => p.powerBackup ? 'Yes' : 'No')],
+      ['Lift', ...properties.map(p => p.lift ? 'Yes' : 'No')],
+      ['Parking', ...properties.map(p => p.parking ? 'Yes' : 'No')],
+      ['Security', ...properties.map(p => p.security ? 'Yes' : 'No')],
+      ['Water Storage', ...properties.map(p => p.waterStorage ? 'Yes' : 'No')],
+      ['Swimming Pool', ...properties.map(p => p.swimmingPool ? 'Yes' : 'No')],
+      ['Gymnasium', ...properties.map(p => p.gymnasium ? 'Yes' : 'No')],
+      ['Park', ...properties.map(p => p.park ? 'Yes' : 'No')],
+      ['Club House', ...properties.map(p => p.clubHouse ? 'Yes' : 'No')],
+      ['Rain Water Harvesting', ...properties.map(p => p.rainWaterHarvesting ? 'Yes' : 'No')],
+      ['Units Available', ...properties.map(p => p.unitsAvailable || 'N/A')],
+      ['Society', ...properties.map(p => p.society || 'N/A')],
+      ['Transaction Type', ...properties.map(p => p.transactionType || 'N/A')],
+      ['Property Uniqueness', ...properties.map(p => p.propertyUniqueness || 'N/A')],
+      ['Tenants Preference', ...properties.map(p => p.tenantsPreference || 'N/A')],
+      ['Luxury Flat', ...properties.map(p => p.luxuryFlat || 'N/A')],
+      ['Is Prime Location Property', ...properties.map(p => p.isPrimeLocationProperty ? 'Yes' : 'No')],
+      ['Is Luxury Service Provided', ...properties.map(p => p.isLuxuryServiceProvided ? 'Yes' : 'No')],
+      ['Property Lifespan', ...properties.map(p => p.propertyLifespan || 'N/A')],
+      ['Balconies', ...properties.map(p => p.balconies || 'N/A')],
+      ['NRI Pref', ...properties.map(p => p.nriPref || 'N/A')],
+      ['Land Area', ...properties.map(p => p.landArea ? `${p.landArea} ${p.landAreaUnit || 'sqft'}` : 'N/A')],
+      ['Pantry Type', ...properties.map(p => p.pantryType || 'N/A')],
+      ['Data Referred From', ...properties.map(p => p.dataReferredFrom || 'N/A')],
+      ['Developer', ...properties.map(p => p.developer || 'N/A')],
+      ['Landmark', ...properties.map(p => p.landmark || 'N/A')],
+      ['Coordinates', ...properties.map(p => p.coordinates && p.coordinates.lat && p.coordinates.lng ? `${p.coordinates.lat}, ${p.coordinates.lng}` : 'N/A')]
+    ];
+
+    // Calculate column widths
+    const numColumns = properties.length + 1; // +1 for the attribute column
+    const firstColumnWidth = 60; // Width for attribute names
+    const remainingWidth = pageWidth - margin * 2 - firstColumnWidth;
+    const otherColumnWidth = remainingWidth / properties.length;
+
+    // Draw table
+    const rowHeight = 8;
+    const cellPadding = 2;
+
+    // Draw header row
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFillColor(240, 240, 240); // Light gray background
+
+    // Header background
+    pdf.rect(margin, yPosition, pageWidth - margin * 2, rowHeight, 'F');
+
+    // Header text
+    pdf.text('Attribute', margin + cellPadding, yPosition + rowHeight - cellPadding);
+    properties.forEach((property, index) => {
+      const propertyName = property.projectName || property.title || 'Property';
+      const x = margin + firstColumnWidth + (index * otherColumnWidth) + cellPadding;
+      const splitText = pdf.splitTextToSize(propertyName, otherColumnWidth - cellPadding * 2);
+      pdf.text(splitText, x, yPosition + rowHeight - cellPadding);
+    });
+
+    yPosition += rowHeight;
+
+    // Draw data rows
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+
+    tableData.forEach((row, rowIndex) => {
+      // Check if we need a new page
+      if (yPosition + rowHeight > pageHeight - margin) {
+        pdf.addPage();
+        yPosition = margin;
+
+        // Redraw header on new page
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(10);
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(margin, yPosition, pageWidth - margin * 2, rowHeight, 'F');
+        pdf.text('Attribute', margin + cellPadding, yPosition + rowHeight - cellPadding);
+        properties.forEach((property, index) => {
+          const propertyName = property.projectName || property.title || 'Property';
+          const x = margin + firstColumnWidth + (index * otherColumnWidth) + cellPadding;
+          const splitText = pdf.splitTextToSize(propertyName, otherColumnWidth - cellPadding * 2);
+          pdf.text(splitText, x, yPosition + rowHeight - cellPadding);
+        });
+        yPosition += rowHeight;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+      }
+
+      // Draw row background (alternating colors)
+      if (rowIndex % 2 === 0) {
+        pdf.setFillColor(250, 250, 250);
+        pdf.rect(margin, yPosition, pageWidth - margin * 2, rowHeight, 'F');
+      }
+
+      // Draw cell borders
+      pdf.setDrawColor(200, 200, 200);
+      pdf.rect(margin, yPosition, firstColumnWidth, rowHeight);
+      properties.forEach((_, index) => {
+        pdf.rect(margin + firstColumnWidth + (index * otherColumnWidth), yPosition, otherColumnWidth, rowHeight);
+      });
+
+      // Draw text
+      const attributeText = pdf.splitTextToSize(row[0], firstColumnWidth - cellPadding * 2);
+      pdf.text(attributeText, margin + cellPadding, yPosition + rowHeight - cellPadding);
+
+      properties.forEach((_, index) => {
+        const cellText = pdf.splitTextToSize(row[index + 1], otherColumnWidth - cellPadding * 2);
+        const x = margin + firstColumnWidth + (index * otherColumnWidth) + cellPadding;
+        pdf.text(cellText, x, yPosition + rowHeight - cellPadding);
+      });
+
+      yPosition += rowHeight;
+    });
+
+    // Save the PDF
+    pdf.save('property-comparison-report.pdf');
+  };
 
   // Compute dynamic highlights based on selected properties
   const getDynamicHighlights = () => {
@@ -401,6 +571,17 @@ const ComparePage = () => {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={generatePDFReport}
+            disabled={properties.length === 0}
+            className={`px-8 py-3 rounded-lg font-semibold transition-colors ${
+              properties.length === 0
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            Download Report
+          </button>
           <button className="bg-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
             Save to watchlist
           </button>

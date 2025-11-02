@@ -8,3 +8,4 @@
 - [x] Update comparison table to use real property data instead of hardcoded values
 - [x] Implement dynamic highlights based on actual property metrics
 - [ ] Test search, selection, and comparison functionality
+- [ ] Add "Download Report" button to generate PDF with all property details
