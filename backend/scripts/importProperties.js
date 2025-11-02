@@ -39,7 +39,13 @@ async function importProperties() {
 
     for (const row of results) {
       try {
-        const coordinates = { lat: null, lng: null };
+        // Read latitude and longitude from CSV
+        const lat = parseNumber(row.latitude) || parseNumber(row.Latitude);
+        const lng = parseNumber(row.Longitude) || parseNumber(row.longitude);
+        const coordinates = { 
+          lat: lat || null, 
+          lng: lng || null 
+        };
 
         const property = new Property({
               id: row.ID,
@@ -58,6 +64,7 @@ async function importProperties() {
               location: row.Location,
               areaName: row['Area Name'],
               city: row.City,
+              locality: row.Locality,
               landmark: row.Landmark,
               
               price: parseNumber(row.Price),

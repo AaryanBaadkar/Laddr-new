@@ -6,60 +6,44 @@ const upload = multer({ storage: multer.memoryStorage() });
 const { importProperties } = require('../scripts/importProperties');
 
 const router = express.Router();
-const { findByCsvId } = require('../utils/propertyCsv');
+const { findByCsvId, getPropertiesFromCsv } = require('../utils/propertyCsv');
 
-// Get properties with optional bounds filter
+// Get properties with optional bounds filter - NOW READING DIRECTLY FROM CSV
 router.get('/', async (req, res) => {
   try {
-    const { north, south, east, west, search, city, locationName, areaName } = req.query;
-    let query = {};
+    const { north, south, east, west, search, city, locationName, areaName, limit } = req.query;
+    
+    // Read directly from CSV with filters
+    const properties = await getPropertiesFromCsv({
+      north,
+      south,
+      east,
+      west,
+      search,
+      city,
+      locationName,
+      areaName,
+      limit: limit || 1000
+    });
 
-    if (north && south && east && west) {
-      query = {
-        'coordinates.lat': { $gte: parseFloat(south), $lte: parseFloat(north) },
-        'coordinates.lng': { $gte: parseFloat(west), $lte: parseFloat(east) }
-      };
-    }
-
-    if (search) {
-      const re = new RegExp(search, 'i');
-      query.$or = [
-        { title: re },
-        { location: re },
-        { locationName: re },
-        { areaName: re },
-        { city: re }
-      ];
-    }
-
-    if (city) query.city = new RegExp(`^${city}$`, 'i');
-    if (locationName) query.locationName = new RegExp(locationName, 'i');
-    if (areaName) query.areaName = new RegExp(areaName, 'i');
-
-    const properties = await Property.find(query).limit(500);
     res.json(properties);
   } catch (error) {
+    console.error('Error fetching properties from CSV:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Get property by ID
+// Get property by ID - NOW READING DIRECTLY FROM CSV
 router.get('/:id', async (req, res) => {
   try {
-    const property = await Property.findById(req.params.id);
+    // Read directly from CSV by ID
+    const property = await findByCsvId(req.params.id);
     if (!property) {
-      // Fallback to CSV by CSV ID
-      const fromCsv = await findByCsvId(req.params.id);
-      if (!fromCsv) return res.status(404).json({ message: 'Property not found' });
-      return res.json(fromCsv);
+      return res.status(404).json({ message: 'Property not found' });
     }
     res.json(property);
   } catch (error) {
-    // If invalid ObjectId or error, also try CSV fallback
-    try {
-      const fromCsv = await findByCsvId(req.params.id);
-      if (fromCsv) return res.json(fromCsv);
-    } catch (e) {}
+    console.error('Error fetching property from CSV:', error);
     res.status(500).json({ message: error.message });
   }
 });
