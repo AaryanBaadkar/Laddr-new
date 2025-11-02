@@ -122,7 +122,7 @@ const ContactPage = () => {
             <div>
               <h3 className="text-lg font-semibold mb-2">Address</h3>
               <p className="text-gray-600">
-                123 Real Estate Street<br />
+                Around the world<br />
                 Mumbai, Maharashtra 400001<br />
                 India
               </p>
@@ -130,8 +130,8 @@ const ContactPage = () => {
             <div>
               <h3 className="text-lg font-semibold mb-2">Contact Info</h3>
               <p className="text-gray-600">
-                Phone: +91 98765 43210<br />
-                Email: info@laddr.com<br />
+                Phone: +91 93246 97522<br />
+                Email: aaryan.baadkar@somaiya.edu<br />
                 Hours: Mon-Fri 9AM-6PM
               </p>
             </div>
