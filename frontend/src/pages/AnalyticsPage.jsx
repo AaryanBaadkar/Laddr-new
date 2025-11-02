@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const AnalyticsPage = () => {
+  const navigate = useNavigate();
+
   const [selectedCity, setSelectedCity] = useState('San Francisco');
   const [budgetRange, setBudgetRange] = useState([0, 1000000]);
   const [selectedPropertyType, setSelectedPropertyType] = useState('Residential');
@@ -12,54 +15,67 @@ const AnalyticsPage = () => {
   const [timeframe, setTimeframe] = useState('5 Years');
 
   const [comparedProperties, setComparedProperties] = useState([]);
+  const [selectedProperties, setSelectedProperties] = useState([]);
+  const [availableLocations, setAvailableLocations] = useState([]);
 
   const [priceTrends, setPriceTrends] = useState({
-    current: 8.5,
-    last5Years: 1.2,
+    current: 0,
+    last5Years: 0,
     data: {
-      '5': [
-        { year: 2019, price: 100000 },
-        { year: 2020, price: 120000 },
-        { year: 2021, price: 150000 },
-        { year: 2022, price: 180000 },
-        { year: 2023, price: 200000 }
-      ],
-      '10': [
-        { year: 2014, price: 80000 },
-        { year: 2015, price: 85000 },
-        { year: 2016, price: 90000 },
-        { year: 2017, price: 95000 },
-        { year: 2018, price: 100000 },
-        { year: 2019, price: 110000 },
-        { year: 2020, price: 130000 },
-        { year: 2021, price: 160000 },
-        { year: 2022, price: 190000 },
-        { year: 2023, price: 210000 }
-      ],
-      '20': [
-        { year: 2004, price: 60000 },
-        { year: 2005, price: 65000 },
-        { year: 2006, price: 70000 },
-        { year: 2007, price: 75000 },
-        { year: 2008, price: 80000 },
-        { year: 2009, price: 85000 },
-        { year: 2010, price: 90000 },
-        { year: 2011, price: 95000 },
-        { year: 2012, price: 100000 },
-        { year: 2013, price: 105000 },
-        { year: 2014, price: 110000 },
-        { year: 2015, price: 115000 },
-        { year: 2016, price: 120000 },
-        { year: 2017, price: 125000 },
-        { year: 2018, price: 130000 },
-        { year: 2019, price: 135000 },
-        { year: 2020, price: 140000 },
-        { year: 2021, price: 145000 },
-        { year: 2022, price: 150000 },
-        { year: 2023, price: 155000 }
-      ]
+      '5': [],
+      '10': [],
+      '20': []
     }
   });
+
+  // Fetch historical price trends data and available locations
+  useEffect(() => {
+    const fetchHistoricalPriceTrends = async () => {
+      try {
+        const response = await axios.get('/api/analytics/historical-price-trends', {
+          params: { years: timeframe.split(' ')[0] }
+        });
+        const data = response.data;
+
+        // Extract unique locations for the "Add City" functionality
+        const locations = [...new Set(data.map(item => item.location))];
+        setAvailableLocations(locations);
+
+        if (data.length > 0) {
+          const locationData = data[0]; // Use first location for now
+          const chartData = locationData.data.map(item => ({
+            year: item.year,
+            price: Math.round(item.price)
+          }));
+
+          setPriceTrends(prev => ({
+            ...prev,
+            data: {
+              ...prev.data,
+              [timeframe.split(' ')[0]]: chartData
+            }
+          }));
+
+          // Calculate current and last 5 years growth
+          if (chartData.length >= 2) {
+            const latest = chartData[chartData.length - 1].price;
+            const oldest = chartData[0].price;
+            const growth = ((latest - oldest) / oldest) * 100;
+
+            setPriceTrends(prev => ({
+              ...prev,
+              current: Math.round(growth),
+              last5Years: Math.round(growth)
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching historical price trends:', error);
+      }
+    };
+
+    fetchHistoricalPriceTrends();
+  }, [timeframe]);
 
   const [roiForecast, setRoiForecast] = useState({
     current: 12.3,
@@ -91,9 +107,51 @@ const AnalyticsPage = () => {
   ]);
 
   const [recommendations, setRecommendations] = useState([
-    { id: 1, name: 'Property A', neighborhood: 'Neighborhood X', image: '/api/placeholder/300/200' },
-    { id: 2, name: 'Property B', neighborhood: 'Neighborhood Y', image: '/api/placeholder/300/200' },
-    { id: 3, name: 'Property C', neighborhood: 'Neighborhood Z', image: '/api/placeholder/300/200' }
+    {
+      id: 1,
+      title: 'Oceanview Villa',
+      name: 'Oceanview Villa',
+      neighborhood: 'Coastal District',
+      image: '/api/placeholder/300/200',
+      currentPrice: 850000,
+      priceTrend: '+12.5% over 5 years',
+      predictedGrowth: 52.4,
+      rentalYield: 6.2,
+      riskLevel: 'Low',
+      riskScore: 2,
+      paybackPeriod: 8,
+      maintenanceCost: 12000
+    },
+    {
+      id: 2,
+      title: 'Downtown Heights',
+      name: 'Downtown Heights',
+      neighborhood: 'Financial District',
+      image: '/api/placeholder/300/200',
+      currentPrice: 1200000,
+      priceTrend: '+8.3% over 5 years',
+      predictedGrowth: 34.7,
+      rentalYield: 7.2,
+      riskLevel: 'Medium',
+      riskScore: 4,
+      paybackPeriod: 10,
+      maintenanceCost: 18000
+    },
+    {
+      id: 3,
+      title: 'Suburban Retreat',
+      name: 'Suburban Retreat',
+      neighborhood: 'Green Valley',
+      image: '/api/placeholder/300/200',
+      currentPrice: 650000,
+      priceTrend: '+15.7% over 5 years',
+      predictedGrowth: 28.9,
+      rentalYield: 5.8,
+      riskLevel: 'Low',
+      riskScore: 3,
+      paybackPeriod: 12,
+      maintenanceCost: 9500
+    }
   ]);
 
   const getRiskColor = (level) => {
@@ -322,75 +380,30 @@ const AnalyticsPage = () => {
               </button>
               <button
                 onClick={() => {
-                  if (comparedProperties.length < 3) {
-                    const colors = ['#3B82F6', '#EF4444', '#10B981'];
-                    const cities = ['New York', 'Los Angeles', 'Chicago'];
-                    const availableCities = cities.filter(city =>
-                      !comparedProperties.some(prop => prop.name === city)
+                  if (availableLocations.length > 0) {
+                    const nextLocation = availableLocations.find(loc =>
+                      !comparedProperties.some(cp => cp.name === loc)
                     );
-                    if (availableCities.length > 0) {
-                      const newCity = availableCities[0];
-                      const newColor = colors[comparedProperties.length];
+                    if (nextLocation) {
+                      const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6'];
                       const newProperty = {
-                        id: comparedProperties.length + 1,
-                        name: newCity,
-                        color: newColor,
-                        data: {
-                          '5': [
-                            { year: 2019, price: 80000 + comparedProperties.length * 10000 },
-                            { year: 2020, price: 95000 + comparedProperties.length * 10000 },
-                            { year: 2021, price: 120000 + comparedProperties.length * 10000 },
-                            { year: 2022, price: 150000 + comparedProperties.length * 10000 },
-                            { year: 2023, price: 170000 + comparedProperties.length * 10000 }
-                          ],
-                          '10': [
-                            { year: 2014, price: 60000 + comparedProperties.length * 8000 },
-                            { year: 2015, price: 65000 + comparedProperties.length * 8000 },
-                            { year: 2016, price: 70000 + comparedProperties.length * 8000 },
-                            { year: 2017, price: 75000 + comparedProperties.length * 8000 },
-                            { year: 2018, price: 80000 + comparedProperties.length * 8000 },
-                            { year: 2019, price: 85000 + comparedProperties.length * 8000 },
-                            { year: 2020, price: 100000 + comparedProperties.length * 8000 },
-                            { year: 2021, price: 130000 + comparedProperties.length * 8000 },
-                            { year: 2022, price: 160000 + comparedProperties.length * 8000 },
-                            { year: 2023, price: 180000 + comparedProperties.length * 8000 }
-                          ],
-                          '20': [
-                            { year: 2004, price: 40000 + comparedProperties.length * 6000 },
-                            { year: 2005, price: 45000 + comparedProperties.length * 6000 },
-                            { year: 2006, price: 50000 + comparedProperties.length * 6000 },
-                            { year: 2007, price: 55000 + comparedProperties.length * 6000 },
-                            { year: 2008, price: 60000 + comparedProperties.length * 6000 },
-                            { year: 2009, price: 65000 + comparedProperties.length * 6000 },
-                            { year: 2010, price: 70000 + comparedProperties.length * 6000 },
-                            { year: 2011, price: 75000 + comparedProperties.length * 6000 },
-                            { year: 2012, price: 80000 + comparedProperties.length * 6000 },
-                            { year: 2013, price: 85000 + comparedProperties.length * 6000 },
-                            { year: 2014, price: 90000 + comparedProperties.length * 6000 },
-                            { year: 2015, price: 95000 + comparedProperties.length * 6000 },
-                            { year: 2016, price: 100000 + comparedProperties.length * 6000 },
-                            { year: 2017, price: 105000 + comparedProperties.length * 6000 },
-                            { year: 2018, price: 110000 + comparedProperties.length * 6000 },
-                            { year: 2019, price: 115000 + comparedProperties.length * 6000 },
-                            { year: 2020, price: 120000 + comparedProperties.length * 6000 },
-                            { year: 2021, price: 125000 + comparedProperties.length * 6000 },
-                            { year: 2022, price: 130000 + comparedProperties.length * 6000 },
-                            { year: 2023, price: 135000 + comparedProperties.length * 6000 }
-                          ]
-                        }
+                        id: Date.now(),
+                        name: nextLocation,
+                        color: colors[comparedProperties.length % colors.length],
+                        data: priceTrends.data
                       };
                       setComparedProperties([...comparedProperties, newProperty]);
                     }
                   }
                 }}
-                disabled={comparedProperties.length >= 3}
+                disabled={availableLocations.length === 0 || comparedProperties.length >= 5}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  comparedProperties.length >= 3
+                  availableLocations.length === 0 || comparedProperties.length >= 5
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                    : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
               >
-                + Add City ({comparedProperties.length}/3)
+                + Add City
               </button>
             </div>
           </div>
@@ -485,14 +498,68 @@ const AnalyticsPage = () => {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Recommendations</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {recommendations.map((property) => (
-              <div key={property.id} className="text-center">
-                <div className="h-48 bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
-                  <span className="text-gray-500">Property Image</span>
+              <div key={property.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center mb-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedProperties.some(p => p.id === property.id)}
+                    onChange={() => {
+                      const isSelected = selectedProperties.some(p => p.id === property.id);
+                      if (isSelected) {
+                        setSelectedProperties(selectedProperties.filter(p => p.id !== property.id));
+                      } else if (selectedProperties.length < 3) {
+                        setSelectedProperties([...selectedProperties, property]);
+                      }
+                    }}
+                    className="mr-2"
+                  />
+                  <h4 className="font-semibold text-gray-900">{property.name}</h4>
                 </div>
-                <h4 className="font-semibold text-gray-900">{property.name}</h4>
-                <p className="text-sm text-gray-600">{property.neighborhood}</p>
+                <p className="text-sm text-gray-600 mb-3">{property.neighborhood}</p>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Current Price:</span>
+                    <span className="font-semibold text-gray-900">${property.currentPrice.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Price Trend:</span>
+                    <span className="font-semibold text-green-600">{property.priceTrend}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Predicted Growth:</span>
+                    <span className="font-semibold text-blue-600">{property.predictedGrowth}%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Rental Yield:</span>
+                    <span className="font-semibold text-purple-600">{property.rentalYield}%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Risk Level:</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(property.riskLevel)}`}>
+                      {property.riskLevel}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Payback Period:</span>
+                    <span className="font-semibold text-gray-900">{property.paybackPeriod} years</span>
+                  </div>
+                </div>
               </div>
             ))}
+          </div>
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={() => navigate('/compare', { state: { selectedProperties } })}
+              disabled={selectedProperties.length === 0}
+              className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+                selectedProperties.length === 0
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              Compare Selected ({selectedProperties.length})
+            </button>
           </div>
         </div>
 

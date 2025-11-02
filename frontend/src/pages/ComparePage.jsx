@@ -1,15 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 const ComparePage = () => {
-  const [properties, setProperties] = useState([]);
+  const location = useLocation();
+  const [properties, setProperties] = useState(location.state?.selectedProperties || []);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const debounceTimerRef = useRef(null);
 
   const getRiskColor = (level) => {
     switch (level) {

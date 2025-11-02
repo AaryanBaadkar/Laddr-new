@@ -93,11 +93,18 @@ const propertySchema = new mongoose.Schema({
   
   // Data source
   dataReferredFrom: { type: String },
-  
+
+  // Historical price tracking
+  priceHistory: [{
+    price: { type: Number, required: true },
+    date: { type: Date, default: Date.now },
+    source: { type: String, default: 'system' }
+  }],
+
   // Legacy fields for compatibility
   locationName: { type: String },
   furnishingType: { type: String },
-  
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('Property', propertySchema);

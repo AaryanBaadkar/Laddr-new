@@ -17,7 +17,7 @@ router.get('/price-trends', async (req, res) => {
             $cond: {
               if: { $gt: ['$carpetArea', 0] },
               then: { $divide: ['$price', '$carpetArea'] },
-              else: 0
+              else: null
             }
           }
         }
@@ -26,7 +26,15 @@ router.get('/price-trends', async (req, res) => {
         $group: {
           _id: '$locationName',
           avgPrice: { $avg: '$price' },
-          avgPricePerSqFt: { $avg: '$pricePerSqFt' },
+          avgPricePerSqFt: {
+            $avg: {
+              $cond: {
+                if: { $ne: ['$pricePerSqFt', null] },
+                then: '$pricePerSqFt',
+                else: '$$REMOVE'
+              }
+            }
+          },
           count: { $sum: 1 }
         }
       },
@@ -68,6 +76,77 @@ router.get('/neighborhoods', async (req, res) => {
       { $sort: { amenitiesScore: -1 } }
     ]);
     res.json(neighborhoods);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get historical price trends by location and time period
+router.get('/historical-price-trends', async (req, res) => {
+  try {
+    const { location, years = 5 } = req.query;
+    const yearsAgo = new Date();
+    yearsAgo.setFullYear(yearsAgo.getFullYear() - parseInt(years));
+
+    let matchStage = {
+      'priceHistory.0': { $exists: true },
+      'priceHistory.date': { $gte: yearsAgo }
+    };
+
+    if (location) {
+      matchStage.locationName = location;
+    }
+
+    const trends = await Property.aggregate([
+      { $match: matchStage },
+      {
+        $project: {
+          locationName: 1,
+          priceHistory: {
+            $filter: {
+              input: '$priceHistory',
+              as: 'history',
+              cond: { $gte: ['$$history.date', yearsAgo] }
+            }
+          }
+        }
+      },
+      { $unwind: '$priceHistory' },
+      {
+        $group: {
+          _id: {
+            location: '$locationName',
+            year: { $year: '$priceHistory.date' }
+          },
+          avgPrice: { $avg: '$priceHistory.price' },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: '$_id.location',
+          data: {
+            $push: {
+              year: '$_id.year',
+              price: '$avgPrice',
+              count: '$count'
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          location: '$_id',
+          data: {
+            $sortArray: { input: '$data', sortBy: { year: 1 } }
+          },
+          _id: 0
+        }
+      },
+      { $sort: { location: 1 } }
+    ]);
+
+    res.json(trends);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
