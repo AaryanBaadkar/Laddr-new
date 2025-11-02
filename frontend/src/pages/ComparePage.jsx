@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
+<<<<<<< HEAD
 import { useLocation } from 'react-router-dom';
 // eslint-disable-next-line import/no-extraneous-dependencies
+=======
+>>>>>>> 8aafb182f5b366f3575f357f52ba9b50e919fcbd
 import jsPDF from 'jspdf';
 
 const ComparePage = () => {
@@ -12,6 +16,10 @@ const ComparePage = () => {
   const [searchResults, setSearchResults] = useState([]);
   const debounceTimerRef = useRef(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceTimerRef = useRef(null);
 
   const getRiskColor = (level) => {
     switch (level) {
