@@ -17,8 +17,8 @@
 - [x] Create property routes (CRUD, CSV upload for admin)
 - [x] Create inquiry routes
 - [x] Implement geocoding and amenities fetching (Nominatim, Overpass API)
-- [ ] Fix analytics price-trends aggregation to handle zero values
-- [ ] Fix inquiries nodemailer issue
+- [x] Fix analytics price-trends aggregation to handle zero values
+- [x] Fix inquiries nodemailer issue
 
 ## 3. Frontend Setup
 - [x] Install frontend dependencies (react, react-router, tailwindcss, leaflet, etc.)
@@ -30,7 +30,7 @@
 - [x] Implement explore page with Leaflet map
 - [x] Create property card and detail modal
 - [x] Implement property comparison page
-- [x] Create analytics dashboard with charts
+- [x] Create analytics dashboard with charts (historical price trends implemented)
 - [x] Create admin panel for CSV upload and property management
 - [x] Create contact page
 
@@ -41,7 +41,7 @@
 - [x] Implement property comparison logic
 - [x] Add analytics data fetching and visualization
 - [x] Implement CSV parsing and property import
-- [ ] Add email notifications for inquiries (using nodemailer or similar)
+- [x] Add email notifications for inquiries (using nodemailer or similar)
 
 ## 5. Testing and Deployment
 - [ ] Test all features end-to-end

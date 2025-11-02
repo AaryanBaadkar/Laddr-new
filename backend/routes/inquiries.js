@@ -22,6 +22,10 @@ router.post('/', async (req, res) => {
     });
 
     const property = await Property.findById(req.body.propertyId);
+    if (!property) {
+      console.error('Property not found for inquiry');
+      return res.status(400).json({ message: 'Property not found' });
+    }
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.ADMIN_EMAIL,
@@ -30,7 +34,27 @@ router.post('/', async (req, res) => {
     };
 
     transporter.sendMail(mailOptions, (error, info) => {
-      if (error) console.log(error);
+      if (error) {
+        console.error('Error sending email to admin:', error);
+      } else {
+        console.log('Email sent to admin:', info.response);
+      }
+    });
+
+    // Send confirmation email to the user
+    const userMailOptions = {
+      from: process.env.EMAIL_USER,
+      to: req.body.email,
+      subject: 'Inquiry Submitted Successfully',
+      text: `Thank you for your inquiry regarding the property: ${property.title}.\n\nYour message: ${req.body.message}\n\nWe will get back to you soon.`
+    };
+
+    transporter.sendMail(userMailOptions, (error, info) => {
+      if (error) {
+        console.error('Error sending confirmation email to user:', error);
+      } else {
+        console.log('Confirmation email sent to user:', info.response);
+      }
     });
 
     res.status(201).json(inquiry);

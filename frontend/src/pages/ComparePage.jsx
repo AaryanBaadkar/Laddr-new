@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 
 const ComparePage = () => {
-  const [properties, setProperties] = useState([]);
+  const location = useLocation();
+  const [properties, setProperties] = useState(location.state?.selectedProperties || []);
   const [showSearchModal, setShowSearchModal] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.selectedProperties) {
+      setProperties(location.state.selectedProperties);
+    }
+  }, [location.state]);
 
   const getRiskColor = (level) => {
     switch (level) {
