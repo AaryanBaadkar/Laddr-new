@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const ComparePage = () => {
   const [properties, setProperties] = useState([]);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceTimerRef = useRef(null);
 
   const getRiskColor = (level) => {
     switch (level) {
@@ -31,6 +35,98 @@ const ComparePage = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Search properties function
+  const searchProperties = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await axios.get('http://localhost:5000/api/properties', {
+        params: { search: query }
+      });
+      setSearchResults(response.data.slice(0, 10)); // Limit to 10 results
+    } catch (err) {
+      console.error('Error searching properties:', err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Handle search input change with debouncing
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      searchProperties(query);
+    }, 300);
+  };
+
+  // Add property to comparison
+  const addPropertyToComparison = (property) => {
+    if (properties.length < 3 && !properties.find(p => p._id === property._id)) {
+      setProperties([...properties, property]);
+      setShowSearchModal(false);
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+  };
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Compute dynamic highlights based on selected properties
+  const getDynamicHighlights = () => {
+    if (properties.length === 0) return null;
+
+    // Find property with highest projected return (ROI)
+    const bestROIProperty = properties.reduce((best, current) => {
+      const currentROI = current.projectedReturn || 0;
+      const bestROI = best.projectedReturn || 0;
+      return currentROI > bestROI ? current : best;
+    });
+
+    // Find property with highest rental yield
+    const bestYieldProperty = properties.reduce((best, current) => {
+      const currentYield = current.rentalYield || 0;
+      const bestYield = best.rentalYield || 0;
+      return currentYield > bestYield ? current : best;
+    });
+
+    // Recommendation based on highest ROI (assuming ROI indicates long-term growth)
+    const recommendedProperty = bestROIProperty;
+
+    return {
+      bestROI: {
+        name: bestROIProperty.projectName || bestROIProperty.title || 'Property',
+        value: bestROIProperty.projectedReturn ? `${bestROIProperty.projectedReturn}%` : 'N/A'
+      },
+      bestYield: {
+        name: bestYieldProperty.projectName || bestYieldProperty.title || 'Property',
+        value: bestYieldProperty.rentalYield ? `${bestYieldProperty.rentalYield}%` : 'N/A'
+      },
+      recommendation: {
+        name: recommendedProperty.projectName || recommendedProperty.title || 'Property'
+      }
+    };
+  };
+
+  const highlights = getDynamicHighlights();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -102,20 +198,72 @@ const ComparePage = () => {
                   <input
                     type="text"
                     placeholder="Search for properties..."
+                    value={searchQuery}
+                    onChange={handleSearchChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    disabled
                   />
+                  {isSearching && (
+                    <div className="mt-2 text-sm text-gray-500">Searching...</div>
+                  )}
                 </div>
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                  </div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">No Properties Available</h4>
-                  <p className="text-gray-600">
-                    Property dataset integration is currently in progress. Please check back soon for the latest property listings.
-                  </p>
+                <div className="max-h-96 overflow-y-auto">
+                  {searchResults.length > 0 ? (
+                    <div className="space-y-2">
+                      {searchResults.map((property) => (
+                        <div
+                          key={property._id}
+                          onClick={() => addPropertyToComparison(property)}
+                          className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-semibold text-gray-900">
+                              {property.projectName || property.title || 'Property'}
+                            </h4>
+                            {property.price && (
+                              <span className="text-lg font-bold text-blue-600">
+                                ₹{property.price.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">
+                            {property.areaName || property.locationName || 'Area'}
+                            {property.locality && `, ${property.locality}`}
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                            {property.bedrooms && <span>{property.bedrooms} Beds</span>}
+                            {property.bathrooms && <span>{property.bathrooms} Baths</span>}
+                            {property.carpetArea && (
+                              <span>{property.carpetArea} {property.carpetAreaUnit || 'sqft'}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : searchQuery && !isSearching ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </div>
+                      <h4 className="text-lg font-medium text-gray-900 mb-2">No Properties Found</h4>
+                      <p className="text-gray-600">
+                        Try searching with different keywords like city, area, or property type.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <h4 className="text-lg font-medium text-gray-900 mb-2">Search Properties</h4>
+                      <p className="text-gray-600">
+                        Start typing to search for properties to compare.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end">
                   <button
@@ -141,7 +289,7 @@ const ComparePage = () => {
                     <tr className="border-b">
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Metrics</th>
                       {properties.map((property) => (
-                        <th key={property.id} className="text-left py-3 px-4 font-medium text-gray-900">{property.title}</th>
+                        <th key={property._id || property.id} className="text-left py-3 px-4 font-medium text-gray-900">{property.projectName || property.title || 'Property'}</th>
                       ))}
                     </tr>
                   </thead>
@@ -149,59 +297,37 @@ const ComparePage = () => {
                     <tr>
                       <td className="py-3 px-4 font-medium text-gray-900">Current Price</td>
                       {properties.map((property) => (
-                        <td key={property.id} className="py-3 px-4 text-gray-900">${property.currentPrice.toLocaleString()}</td>
+                        <td key={property._id || property.id} className="py-3 px-4 text-gray-900">₹{property.price?.toLocaleString() || 'N/A'}</td>
                       ))}
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 font-medium text-gray-900">Historical Price Trend</td>
+                      <td className="py-3 px-4 font-medium text-gray-900">Location</td>
                       {properties.map((property) => (
-                        <td key={property.id} className="py-3 px-4 text-gray-900">{property.priceTrend}</td>
+                        <td key={property._id || property.id} className="py-3 px-4 text-gray-900">{property.areaName || property.locationName || 'N/A'}</td>
                       ))}
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 font-medium text-gray-900">Predicted Growth (5-year ROI)</td>
-                      {properties.map((property, index) => (
-                        <td key={property.id} className="py-3 px-4">
-                          {index === 0 ? (
-                            <span className="font-bold text-purple-600">{property.predictedGrowth}%</span>
-                          ) : (
-                            <span className="text-gray-900">{property.predictedGrowth}%</span>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className="py-3 px-4 font-medium text-gray-900">Rental Yield %</td>
-                      {properties.map((property, index) => (
-                        <td key={property.id} className="py-3 px-4">
-                          {index === 1 ? (
-                            <span className="font-bold text-purple-600">{property.rentalYield}%</span>
-                          ) : (
-                            <span className="text-gray-900">{property.rentalYield}%</span>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className="py-3 px-4 font-medium text-gray-900">Risk Score</td>
+                      <td className="py-3 px-4 font-medium text-gray-900">Property Type</td>
                       {properties.map((property) => (
-                        <td key={property.id} className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(property.riskLevel)}`}>
-                            {property.riskLevel} ({property.riskScore})
-                          </span>
-                        </td>
+                        <td key={property._id || property.id} className="py-3 px-4 text-gray-900">{property.propertyType || 'N/A'}</td>
                       ))}
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 font-medium text-gray-900">Payback Period</td>
+                      <td className="py-3 px-4 font-medium text-gray-900">Bedrooms</td>
                       {properties.map((property) => (
-                        <td key={property.id} className="py-3 px-4 text-gray-900">{property.paybackPeriod} years</td>
+                        <td key={property._id || property.id} className="py-3 px-4 text-gray-900">{property.bedrooms || 'N/A'}</td>
                       ))}
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 font-medium text-gray-900">Maintenance Cost Estimate</td>
+                      <td className="py-3 px-4 font-medium text-gray-900">Carpet Area</td>
                       {properties.map((property) => (
-                        <td key={property.id} className="py-3 px-4 text-gray-900">${property.maintenanceCost.toLocaleString()}/year</td>
+                        <td key={property._id || property.id} className="py-3 px-4 text-gray-900">{property.carpetArea ? `${property.carpetArea} ${property.carpetAreaUnit || 'sqft'}` : 'N/A'}</td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-4 font-medium text-gray-900">Status</td>
+                      {properties.map((property) => (
+                        <td key={property._id || property.id} className="py-3 px-4 text-gray-900">{property.status || 'N/A'}</td>
                       ))}
                     </tr>
                   </tbody>
@@ -219,7 +345,7 @@ const ComparePage = () => {
         )}
 
         {/* Investment Highlights */}
-        {properties.length > 0 ? (
+        {properties.length > 0 && highlights ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white p-6 rounded-lg shadow-sm border">
               <div className="flex items-center mb-4">
@@ -231,7 +357,7 @@ const ComparePage = () => {
                 <h4 className="text-lg font-semibold text-gray-900">Best ROI</h4>
               </div>
               <p className="text-gray-600">
-                Oceanview Villa offers the highest projected 5-year return at 52.4%, making it ideal for long-term growth investors.
+                {highlights.bestROI.name} offers the highest projected 5-year return at {highlights.bestROI.value}, making it ideal for long-term growth investors.
               </p>
             </div>
 
@@ -246,7 +372,7 @@ const ComparePage = () => {
                 <h4 className="text-lg font-semibold text-gray-900">Best Yield</h4>
               </div>
               <p className="text-gray-600">
-                Downtown Heights provides the strongest rental yield at 7.2%, perfect for investors seeking immediate cash flow.
+                {highlights.bestYield.name} provides the strongest rental yield at {highlights.bestYield.value}, perfect for investors seeking immediate cash flow.
               </p>
             </div>
 
@@ -260,7 +386,7 @@ const ComparePage = () => {
                 <h4 className="text-lg font-semibold text-gray-900">Our Recommendation</h4>
               </div>
               <p className="text-gray-600">
-                Oceanview Villa has the best long-term growth potential with balanced risk and yield metrics.
+                {highlights.recommendation.name} has the best long-term growth potential with balanced risk and yield metrics.
               </p>
             </div>
           </div>
