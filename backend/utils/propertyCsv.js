@@ -128,13 +128,25 @@ const mapRowToProperty = (row) => {
 
 const readCsvAll = async () => {
   const csvPath = path.join(__dirname, '../../properties.csv');
+  
+  // Check if file exists
+  if (!fs.existsSync(csvPath)) {
+    throw new Error(`CSV file not found at: ${csvPath}`);
+  }
+  
   const results = [];
   await new Promise((resolve, reject) => {
     fs.createReadStream(csvPath)
       .pipe(csv())
       .on('data', (data) => results.push(data))
-      .on('error', reject)
-      .on('end', resolve);
+      .on('error', (err) => {
+        console.error('Error reading CSV file:', err);
+        reject(err);
+      })
+      .on('end', () => {
+        console.log(`Successfully loaded ${results.length} properties from CSV`);
+        resolve();
+      });
   });
   return results;
 };
