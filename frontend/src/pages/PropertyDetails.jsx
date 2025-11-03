@@ -5,8 +5,11 @@ import axios from 'axios';
 const PropertyDetails = () => {
   const { id } = useParams();
   const [property, setProperty] = useState(null);
+  const [propertyError, setPropertyError] = useState(null);
   const [inquiryForm, setInquiryForm] = useState({ name: '', email: '', message: '' });
   const [showInquiryForm, setShowInquiryForm] = useState(false);
+  const [inquiryLoading, setInquiryLoading] = useState(false);
+  const [inquiryError, setInquiryError] = useState(null);
 
   useEffect(() => {
     fetchProperty();
@@ -16,13 +19,17 @@ const PropertyDetails = () => {
     try {
       const response = await axios.get(`http://localhost:5000/api/properties/${id}`);
       setProperty(response.data);
+      setPropertyError(null);
     } catch (err) {
       console.error('Error fetching property:', err);
+      setPropertyError('Failed to load property details. Please try again later.');
     }
   };
 
   const handleInquirySubmit = async (e) => {
     e.preventDefault();
+    setInquiryLoading(true);
+    setInquiryError(null);
     try {
       await axios.post('http://localhost:5000/api/inquiries', {
         propertyId: id,
@@ -33,9 +40,13 @@ const PropertyDetails = () => {
       setInquiryForm({ name: '', email: '', message: '' });
     } catch (err) {
       console.error('Error sending inquiry:', err);
+      setInquiryError('Failed to send inquiry. Please try again.');
+    } finally {
+      setInquiryLoading(false);
     }
   };
 
+  if (propertyError) return <div className="text-center py-8 text-red-600">{propertyError}</div>;
   if (!property) return <div className="text-center py-8">Loading...</div>;
 
   return (
@@ -48,8 +59,8 @@ const PropertyDetails = () => {
             <div>
               <div className="mb-6">
                 <img
-                  src="/placeholder-property.jpg"
-                  alt={property.title}
+                  src={property.photoUrl}
+                  alt={property.Photos}
                   className="w-full h-64 object-cover rounded-lg"
                 />
               </div>
@@ -151,12 +162,14 @@ const PropertyDetails = () => {
                         required
                       />
                     </div>
+                    {inquiryError && <p className="text-red-600 text-sm">{inquiryError}</p>}
                     <div className="flex space-x-2">
                       <button
                         type="submit"
-                        className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
+                        disabled={inquiryLoading}
+                        className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
                       >
-                        Send
+                        {inquiryLoading ? 'Sending...' : 'Send'}
                       </button>
                       <button
                         type="button"
