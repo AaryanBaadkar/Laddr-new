@@ -20,6 +20,24 @@ const AnalyticsPage = () => {
   const [availableCities, setAvailableCities] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [summary, setSummary] = useState({
+    totalProperties: 0,
+    avgPrice: 0,
+    avgPricePerSqFt: 0,
+    totalValue: 0
+  });
+
+  const [amenitiesAnalysis, setAmenitiesAnalysis] = useState({
+    popularAmenities: [],
+    keyAmenitiesImpact: {
+      avgPriceWithLift: 0,
+      avgPriceWithParking: 0,
+      avgPriceWithSecurity: 0
+    }
+  });
+
+  const [possessionStatus, setPossessionStatus] = useState([]);
+
   const [priceTrends, setPriceTrends] = useState({
     current: 0,
     last5Years: 0,
@@ -40,53 +58,57 @@ const AnalyticsPage = () => {
         });
         const data = response.data;
 
-        // Extract unique locations for the "Add City" functionality
-        const locations = [...new Set(data.map(item => item.location))];
-        setAvailableLocations(locations);
-
         if (data.length > 0) {
-          const locationData = data[0]; // Use first location for now
-          const chartData = locationData.data.map(item => ({
-            year: item.year,
-            price: Math.round(item.price)
-          }));
-        });
-
-        setAvailableLocations(Object.keys(aggregatedData));
-
-        if (Object.keys(aggregatedData).length > 0) {
-          const firstLocation = Object.keys(aggregatedData)[0];
-          const chartData = aggregatedData[firstLocation];
-
-          setPriceTrends(prev => ({
-            ...prev,
-            data: {
-              ...prev.data,
-              [years.toString()]: chartData
+          // Transform data to match expected structure: { location: [{year, price}] }
+          const aggregatedData = {};
+          data.forEach(trend => {
+            if (trend.location && trend.data) {
+              aggregatedData[trend.location] = trend.data.map(item => ({
+                year: item.year,
+                price: Math.round(item.price)
+              }));
             }
-          }));
+          });
 
-          // Calculate current and last 5 years growth
-          if (chartData.length >= 2) {
-            const latest = chartData[chartData.length - 1].price;
-            const oldest = chartData[0].price;
-            const growth = oldest > 0 ? ((latest - oldest) / oldest) * 100 : 0;
+          // Extract unique locations for the "Add City" functionality
+          const locations = Object.keys(aggregatedData);
+          setAvailableLocations(locations);
+
+          if (locations.length > 0) {
+            const firstLocation = locations[0];
+            const chartData = aggregatedData[firstLocation];
 
             setPriceTrends(prev => ({
               ...prev,
-              current: Math.round(growth),
-              last5Years: Math.round(growth)
+              data: {
+                ...prev.data,
+                [timeframe.split(' ')[0]]: chartData
+              }
             }));
-          }
-          
-          // Update available locations from trends data
-          const locations = [...new Set(data.map(item => item.location).filter(Boolean))];
-          if (locations.length > 0) {
-            // Merge with existing locations, avoiding duplicates
-            setAvailableLocations(prev => {
-              const combined = [...new Set([...prev, ...locations])];
-              return combined;
-            });
+
+            // Calculate current and last 5 years growth
+            if (chartData.length >= 2) {
+              const latest = chartData[chartData.length - 1].price;
+              const oldest = chartData[0].price;
+              const growth = oldest > 0 ? ((latest - oldest) / oldest) * 100 : 0;
+
+              setPriceTrends(prev => ({
+                ...prev,
+                current: Math.round(growth),
+                last5Years: Math.round(growth)
+              }));
+            }
+          } else {
+            // No data available
+            setPriceTrends(prev => ({
+              ...prev,
+              data: {
+                ...prev.data,
+                [timeframe.split(' ')[0]]: []
+              },
+              current: 0,
+              last5Years: 0
+            }));
           }
         } else {
           // No data available
@@ -117,7 +139,7 @@ const AnalyticsPage = () => {
     };
 
     fetchHistoricalPriceTrends();
-  }, [timeframe, selectedCity, availableLocations]);
+  }, [timeframe, selectedCity]);
 
   const [roiForecast, setRoiForecast] = useState({
     current: 12.3,
@@ -505,19 +527,21 @@ const AnalyticsPage = () => {
               </button>
               <button
                 onClick={() => {
-                  if (availableLocations.length > 0) {
-                    const nextLocation = availableLocations.find(loc =>
-                      !comparedProperties.some(cp => cp.name === loc)
-                    );
-                    if (nextLocation) {
-                      const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6'];
-                      const newProperty = {
-                        id: Date.now(),
-                        name: nextLocation,
-                        color: colors[comparedProperties.length % colors.length],
-                        data: priceTrends.data
-                      };
-                      setComparedProperties([...comparedProperties, newProperty]);
+                  try {
+                    if (availableLocations.length > 0) {
+                      const nextLocation = availableLocations.find(loc =>
+                        !comparedProperties.some(cp => cp.name === loc)
+                      );
+                      if (nextLocation) {
+                        const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6'];
+                        const newProperty = {
+                          id: Date.now(),
+                          name: nextLocation,
+                          color: colors[comparedProperties.length % colors.length],
+                          data: priceTrends.data
+                        };
+                        setComparedProperties([...comparedProperties, newProperty]);
+                      }
                     }
                   } catch (error) {
                     console.error('Error fetching location data:', error);

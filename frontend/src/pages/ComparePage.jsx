@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
+import jsPDF from 'jspdf';
 
 const ComparePage = () => {
   const location = useLocation();
@@ -10,10 +11,6 @@ const ComparePage = () => {
   const [searchResults, setSearchResults] = useState([]);
   const debounceTimerRef = useRef(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const debounceTimerRef = useRef(null);
 
   const getRiskColor = (level) => {
     switch (level) {
