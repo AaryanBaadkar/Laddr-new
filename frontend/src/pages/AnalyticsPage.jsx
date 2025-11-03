@@ -6,7 +6,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 const AnalyticsPage = () => {
   const navigate = useNavigate();
 
-  const [selectedCity, setSelectedCity] = useState('San Francisco');
+  const [selectedCity, setSelectedCity] = useState('');
   const [budgetRange, setBudgetRange] = useState([0, 1000000]);
   const [selectedPropertyType, setSelectedPropertyType] = useState('Residential');
   const [selectedRiskLevel, setSelectedRiskLevel] = useState('Low Risk');
@@ -48,13 +48,30 @@ const AnalyticsPage = () => {
     }
   });
 
+  // Load cities on mount and set default selected city from CSV
+  useEffect(() => {
+    const loadCities = async () => {
+      try {
+        const res = await axios.get('/api/analytics/cities');
+        const cities = res.data || [];
+        setAvailableCities(cities);
+        if (cities.length > 0 && !selectedCity) {
+          setSelectedCity(cities[0]);
+        }
+      } catch (e) {
+        console.error('Error loading cities', e);
+      }
+    };
+    loadCities();
+  }, []);
+
   // Fetch historical price trends data and available locations
   useEffect(() => {
     const fetchHistoricalPriceTrends = async () => {
       if (!selectedCity) return;
       try {
         const response = await axios.get('/api/analytics/historical-price-trends', {
-          params: { years: timeframe.split(' ')[0] }
+          params: { years: timeframe.split(' ')[0], city: selectedCity }
         });
         const data = response.data;
 
@@ -140,6 +157,37 @@ const AnalyticsPage = () => {
 
     fetchHistoricalPriceTrends();
   }, [timeframe, selectedCity]);
+
+  // Fetch summary, ROI forecast, rental yield, amenities analysis, possession status
+  useEffect(() => {
+    const loadAll = async () => {
+      if (!selectedCity) return;
+      try {
+        const [summaryRes, roiRes, yieldRes, amenitiesRes, possessionRes] = await Promise.all([
+          axios.get('/api/analytics/summary', { params: { city: selectedCity } }),
+          axios.get('/api/analytics/roi-forecast', { params: { city: selectedCity } }),
+          axios.get('/api/analytics/rental-yield', { params: { city: selectedCity } }),
+          axios.get('/api/analytics/amenities-analysis', { params: { city: selectedCity } }),
+          axios.get('/api/analytics/possession-status', { params: { city: selectedCity } })
+        ]);
+
+        setSummary({
+          totalProperties: summaryRes.data.totalProperties || 0,
+          avgPrice: summaryRes.data.avgPrice || 0,
+          avgPricePerSqFt: summaryRes.data.avgPricePerSqFt || 0,
+          totalValue: summaryRes.data.totalValue || 0
+        });
+
+        setRoiForecast(roiRes.data || { current: 0, projectedCAGR: 0, data: [] });
+        setRentalYield(yieldRes.data || { average: 0, change: 0, data: [] });
+        setAmenitiesAnalysis(amenitiesRes.data || { popularAmenities: [], keyAmenitiesImpact: {} });
+        setPossessionStatus(possessionRes.data || []);
+      } catch (e) {
+        console.error('Error loading analytics data', e);
+      }
+    };
+    loadAll();
+  }, [selectedCity]);
 
   const [roiForecast, setRoiForecast] = useState({
     current: 12.3,
@@ -325,10 +373,10 @@ const AnalyticsPage = () => {
                 onChange={(e) => setSelectedCity(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="San Francisco">San Francisco</option>
-                <option value="New York">New York</option>
-                <option value="Los Angeles">Los Angeles</option>
-                <option value="Chicago">Chicago</option>
+                <option value="" disabled>Select a city</option>
+                {availableCities.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
               </select>
             </div>
             
