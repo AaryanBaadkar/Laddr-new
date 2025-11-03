@@ -14,4 +14,6 @@
 ## 4. Testing and Validation
 - [x] Test the new endpoint returns proper historical data structure
 - [x] Verify chart renders correctly with historical data
+- [x] Test timeframe switching (5/10/20 years)
 - [x] Update main TODO.md to mark historical price trends as completed
+- [x] Update frontend to fetch data from backend API instead of static JSON

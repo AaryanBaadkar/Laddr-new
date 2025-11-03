@@ -6,11 +6,11 @@ import jsPDF from 'jspdf';
 const ComparePage = () => {
   const location = useLocation();
   const [properties, setProperties] = useState(location.state?.selectedProperties || []);
-  const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
   const debounceTimerRef = useRef(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
 
   const getRiskColor = (level) => {
     switch (level) {
@@ -48,7 +48,7 @@ const ComparePage = () => {
 
     setIsSearching(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/properties', {
+      const response = await axios.get('/api/properties', {
         params: { search: query }
       });
       setSearchResults(response.data.slice(0, 10)); // Limit to 10 results
@@ -261,43 +261,67 @@ const ComparePage = () => {
     pdf.save('property-comparison-report.pdf');
   };
 
-  // Compute dynamic highlights based on selected properties
-  const getDynamicHighlights = () => {
-    if (properties.length === 0) return null;
+  const [highlights, setHighlights] = useState(null);
 
-    // Find property with highest projected return (ROI)
-    const bestROIProperty = properties.reduce((best, current) => {
-      const currentROI = current.projectedReturn || 0;
-      const bestROI = best.projectedReturn || 0;
-      return currentROI > bestROI ? current : best;
-    });
+  // Fetch highlights using the algorithm
+  useEffect(() => {
+    const fetchHighlights = async () => {
+      if (properties.length === 0) {
+        setHighlights(null);
+        return;
+      }
 
-    // Find property with highest rental yield
-    const bestYieldProperty = properties.reduce((best, current) => {
-      const currentYield = current.rentalYield || 0;
-      const bestYield = best.rentalYield || 0;
-      return currentYield > bestYield ? current : best;
-    });
+      try {
+        const propertyIds = properties.map(p => p.id || p._id).filter(Boolean);
+        if (propertyIds.length === 0) {
+          setHighlights(null);
+          return;
+        }
 
-    // Recommendation based on highest ROI (assuming ROI indicates long-term growth)
-    const recommendedProperty = bestROIProperty;
+        const response = await axios.get('/api/analytics/property-analysis', {
+          params: { propertyIds: propertyIds.join(',') }
+        });
+        
+        setHighlights(response.data);
+      } catch (error) {
+        console.error('Error fetching highlights:', error);
+        // Fallback to local calculation
+        const bestROIProperty = properties.reduce((best, current) => {
+          const currentROI = current.projectedReturn || current.roi || 0;
+          const bestROI = best.projectedReturn || best.roi || 0;
+          return currentROI > bestROI ? current : best;
+        });
 
-    return {
-      bestROI: {
-        name: bestROIProperty.projectName || bestROIProperty.title || 'Property',
-        value: bestROIProperty.projectedReturn ? `${bestROIProperty.projectedReturn}%` : 'N/A'
-      },
-      bestYield: {
-        name: bestYieldProperty.projectName || bestYieldProperty.title || 'Property',
-        value: bestYieldProperty.rentalYield ? `${bestYieldProperty.rentalYield}%` : 'N/A'
-      },
-      recommendation: {
-        name: recommendedProperty.projectName || recommendedProperty.title || 'Property'
+        const bestYieldProperty = properties.reduce((best, current) => {
+          const currentYield = current.rentalYield || current.yield || 0;
+          const bestYield = best.rentalYield || best.yield || 0;
+          return currentYield > bestYield ? current : best;
+        });
+
+        const recommendedProperty = properties.reduce((best, current) => {
+          const currentScore = current.score || current.investmentScore || 0;
+          const bestScore = best.score || best.investmentScore || 0;
+          return currentScore > bestScore ? current : best;
+        }) || bestROIProperty;
+
+        setHighlights({
+          bestROI: {
+            name: bestROIProperty.projectName || bestROIProperty.title || 'Property',
+            value: bestROIProperty.projectedReturn || bestROIProperty.roi ? `${bestROIProperty.projectedReturn || bestROIProperty.roi}%` : 'N/A'
+          },
+          bestYield: {
+            name: bestYieldProperty.projectName || bestYieldProperty.title || 'Property',
+            value: bestYieldProperty.rentalYield || bestYieldProperty.yield ? `${bestYieldProperty.rentalYield || bestYieldProperty.yield}%` : 'N/A'
+          },
+          recommendation: {
+            name: recommendedProperty.projectName || recommendedProperty.title || 'Property'
+          }
+        });
       }
     };
-  };
 
-  const highlights = getDynamicHighlights();
+    fetchHighlights();
+  }, [properties]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -528,7 +552,7 @@ const ComparePage = () => {
                 <h4 className="text-lg font-semibold text-gray-900">Best ROI</h4>
               </div>
               <p className="text-gray-600">
-                {highlights.bestROI.name} offers the highest projected 5-year return at {highlights.bestROI.value}, making it ideal for long-term growth investors.
+                {highlights.bestROI?.name || 'Property'} offers the highest projected 5-year return at {highlights.bestROI?.value || 'N/A'}, making it ideal for long-term growth investors.
               </p>
             </div>
 
@@ -543,7 +567,7 @@ const ComparePage = () => {
                 <h4 className="text-lg font-semibold text-gray-900">Best Yield</h4>
               </div>
               <p className="text-gray-600">
-                {highlights.bestYield.name} provides the strongest rental yield at {highlights.bestYield.value}, perfect for investors seeking immediate cash flow.
+                {highlights.bestYield?.name || 'Property'} provides the strongest rental yield at {highlights.bestYield?.value || 'N/A'}, perfect for investors seeking immediate cash flow.
               </p>
             </div>
 
@@ -557,8 +581,15 @@ const ComparePage = () => {
                 <h4 className="text-lg font-semibold text-gray-900">Our Recommendation</h4>
               </div>
               <p className="text-gray-600">
-                {highlights.recommendation.name} has the best long-term growth potential with balanced risk and yield metrics.
+                {highlights.recommendation?.name || 'Property'} has the best long-term growth potential with balanced risk and yield metrics based on comprehensive analysis.
               </p>
+            </div>
+          </div>
+        ) : properties.length > 0 ? (
+          <div className="bg-white rounded-lg shadow-sm border mb-8">
+            <div className="p-6 text-center">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Investment Highlights</h3>
+              <p className="text-gray-500">Analyzing properties...</p>
             </div>
           </div>
         ) : (

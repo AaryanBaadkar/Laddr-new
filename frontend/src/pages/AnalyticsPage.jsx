@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const AnalyticsPage = () => {
   const navigate = useNavigate();
@@ -17,6 +17,26 @@ const AnalyticsPage = () => {
   const [comparedProperties, setComparedProperties] = useState([]);
   const [selectedProperties, setSelectedProperties] = useState([]);
   const [availableLocations, setAvailableLocations] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [summary, setSummary] = useState({
+    totalProperties: 0,
+    avgPrice: 0,
+    avgPricePerSqFt: 0,
+    totalValue: 0
+  });
+
+  const [amenitiesAnalysis, setAmenitiesAnalysis] = useState({
+    popularAmenities: [],
+    keyAmenitiesImpact: {
+      avgPriceWithLift: 0,
+      avgPriceWithParking: 0,
+      avgPriceWithSecurity: 0
+    }
+  });
+
+  const [possessionStatus, setPossessionStatus] = useState([]);
 
   const [priceTrends, setPriceTrends] = useState({
     current: 0,
@@ -31,51 +51,95 @@ const AnalyticsPage = () => {
   // Fetch historical price trends data and available locations
   useEffect(() => {
     const fetchHistoricalPriceTrends = async () => {
+      if (!selectedCity) return;
       try {
         const response = await axios.get('/api/analytics/historical-price-trends', {
           params: { years: timeframe.split(' ')[0] }
         });
         const data = response.data;
 
-        // Extract unique locations for the "Add City" functionality
-        const locations = [...new Set(data.map(item => item.location))];
-        setAvailableLocations(locations);
-
         if (data.length > 0) {
-          const locationData = data[0]; // Use first location for now
-          const chartData = locationData.data.map(item => ({
-            year: item.year,
-            price: Math.round(item.price)
-          }));
+          // Transform data to match expected structure: { location: [{year, price}] }
+          const aggregatedData = {};
+          data.forEach(trend => {
+            if (trend.location && trend.data) {
+              aggregatedData[trend.location] = trend.data.map(item => ({
+                year: item.year,
+                price: Math.round(item.price)
+              }));
+            }
+          });
 
+          // Extract unique locations for the "Add City" functionality
+          const locations = Object.keys(aggregatedData);
+          setAvailableLocations(locations);
+
+          if (locations.length > 0) {
+            const firstLocation = locations[0];
+            const chartData = aggregatedData[firstLocation];
+
+            setPriceTrends(prev => ({
+              ...prev,
+              data: {
+                ...prev.data,
+                [timeframe.split(' ')[0]]: chartData
+              }
+            }));
+
+            // Calculate current and last 5 years growth
+            if (chartData.length >= 2) {
+              const latest = chartData[chartData.length - 1].price;
+              const oldest = chartData[0].price;
+              const growth = oldest > 0 ? ((latest - oldest) / oldest) * 100 : 0;
+
+              setPriceTrends(prev => ({
+                ...prev,
+                current: Math.round(growth),
+                last5Years: Math.round(growth)
+              }));
+            }
+          } else {
+            // No data available
+            setPriceTrends(prev => ({
+              ...prev,
+              data: {
+                ...prev.data,
+                [timeframe.split(' ')[0]]: []
+              },
+              current: 0,
+              last5Years: 0
+            }));
+          }
+        } else {
+          // No data available
           setPriceTrends(prev => ({
             ...prev,
             data: {
               ...prev.data,
-              [timeframe.split(' ')[0]]: chartData
-            }
+              [timeframe.split(' ')[0]]: []
+            },
+            current: 0,
+            last5Years: 0
           }));
-
-          // Calculate current and last 5 years growth
-          if (chartData.length >= 2) {
-            const latest = chartData[chartData.length - 1].price;
-            const oldest = chartData[0].price;
-            const growth = ((latest - oldest) / oldest) * 100;
-
-            setPriceTrends(prev => ({
-              ...prev,
-              current: Math.round(growth),
-              last5Years: Math.round(growth)
-            }));
-          }
         }
+        setLoading(false);
       } catch (error) {
         console.error('Error fetching historical price trends:', error);
+        setPriceTrends(prev => ({
+          ...prev,
+          data: {
+            ...prev.data,
+            [timeframe.split(' ')[0]]: []
+          },
+          current: 0,
+          last5Years: 0
+        }));
+        setLoading(false);
       }
     };
 
     fetchHistoricalPriceTrends();
-  }, [timeframe]);
+  }, [timeframe, selectedCity]);
 
   const [roiForecast, setRoiForecast] = useState({
     current: 12.3,
@@ -165,19 +229,28 @@ const AnalyticsPage = () => {
   };
 
   const getCombinedChartData = () => {
-    if (comparedProperties.length === 0) return [];
     const timeframeKey = timeframe.split(' ')[0];
-    const years = comparedProperties[0].data[timeframeKey].map(item => item.year);
-    return years.map(year => {
-      const dataPoint = { year };
-      comparedProperties.forEach(property => {
-        const propertyData = property.data[timeframeKey].find(item => item.year === year);
-        if (propertyData) {
-          dataPoint[property.name] = propertyData.price;
-        }
+    
+    if (comparedProperties.length > 0) {
+      const years = comparedProperties[0].data[timeframeKey]?.map(item => item.year) || [];
+      return years.map(year => {
+        const dataPoint = { year };
+        comparedProperties.forEach(property => {
+          const propertyData = property.data[timeframeKey]?.find(item => item.year === year);
+          if (propertyData) {
+            dataPoint[property.name] = propertyData.price;
+          }
+        });
+        return dataPoint;
       });
-      return dataPoint;
-    });
+    }
+    
+    // Return single location data if no comparisons
+    if (priceTrends.data[timeframeKey] && priceTrends.data[timeframeKey].length > 0) {
+      return priceTrends.data[timeframeKey];
+    }
+    
+    return [];
   };
 
   return (
@@ -190,6 +263,56 @@ const AnalyticsPage = () => {
             Analyze property investments with interactive widgets and visualizations
           </p>
         </div>
+
+        {/* Summary Statistics */}
+        {selectedCity && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Properties</p>
+                  <p className="text-2xl font-bold text-gray-900">{summary.totalProperties.toLocaleString()}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span className="text-2xl">🏠</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Average Price</p>
+                  <p className="text-2xl font-bold text-gray-900">₹{summary.avgPrice.toLocaleString()}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <span className="text-2xl">💰</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Price per Sqft</p>
+                  <p className="text-2xl font-bold text-gray-900">₹{summary.avgPricePerSqFt.toLocaleString()}</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <span className="text-2xl">📐</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Market Value</p>
+                  <p className="text-2xl font-bold text-gray-900">₹{(summary.totalValue / 1000000).toFixed(1)}M</p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <span className="text-2xl">📊</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filters & Controls */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
@@ -318,34 +441,58 @@ const AnalyticsPage = () => {
               ))}
             </div>
           </div>
-          
+
           <div className="flex items-center mb-6">
-            <div className="text-4xl font-bold text-gray-900 mr-4">+{priceTrends.current}%</div>
-            <div className="text-sm text-green-600">Last 5 Years +{priceTrends.last5Years}%</div>
+            <div className="text-4xl font-bold text-gray-900 mr-4">
+              {priceTrends.current > 0 ? '+' : ''}{priceTrends.current}%
+            </div>
+            <div className={`text-sm ${priceTrends.last5Years >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              Last {timeframe} {priceTrends.last5Years >= 0 ? '+' : ''}{priceTrends.last5Years}%
+            </div>
           </div>
-          
+
           <div className="h-64 bg-white rounded-lg border mb-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={getCombinedChartData()}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="year" />
-                <YAxis />
-                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Price']} />
-                <Legend />
-                {comparedProperties.map((property) => (
-                  <Line
-                    key={property.id}
-                    type="monotone"
-                    dataKey={property.name}
-                    stroke={property.color}
-                    strokeWidth={2}
-                    name={property.name}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-500">Loading price trends...</p>
+              </div>
+            ) : priceTrends.data[timeframe.split(' ')[0]]?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={getCombinedChartData()}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="year" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, 'Price']} />
+                  <Legend />
+                  {comparedProperties.length > 0 ? (
+                    comparedProperties.map((property) => (
+                      <Line
+                        key={property.id}
+                        type="monotone"
+                        dataKey={property.name}
+                        stroke={property.color}
+                        strokeWidth={2}
+                        name={property.name}
+                      />
+                    ))
+                  ) : (
+                    <Line
+                      type="monotone"
+                      dataKey="price"
+                      stroke="#3B82F6"
+                      strokeWidth={2}
+                      name="Average Price"
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-500">No data available. Please select a city.</p>
+              </div>
+            )}
           </div>
-          
+
           <div className="flex justify-between items-center">
             <div className="flex space-x-2">
               {['5 Years', '10 Years', '20 Years'].map((period) => (
@@ -380,36 +527,42 @@ const AnalyticsPage = () => {
               </button>
               <button
                 onClick={() => {
-                  if (availableLocations.length > 0) {
-                    const nextLocation = availableLocations.find(loc =>
-                      !comparedProperties.some(cp => cp.name === loc)
-                    );
-                    if (nextLocation) {
-                      const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6'];
-                      const newProperty = {
-                        id: Date.now(),
-                        name: nextLocation,
-                        color: colors[comparedProperties.length % colors.length],
-                        data: priceTrends.data
-                      };
-                      setComparedProperties([...comparedProperties, newProperty]);
+                  try {
+                    if (availableLocations.length > 0) {
+                      const nextLocation = availableLocations.find(loc =>
+                        !comparedProperties.some(cp => cp.name === loc)
+                      );
+                      if (nextLocation) {
+                        const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6'];
+                        const newProperty = {
+                          id: Date.now(),
+                          name: nextLocation,
+                          color: colors[comparedProperties.length % colors.length],
+                          data: priceTrends.data
+                        };
+                        setComparedProperties([...comparedProperties, newProperty]);
+                      }
                     }
+                  } catch (error) {
+                    console.error('Error fetching location data:', error);
+                    alert('Error loading location data. Please try again.');
                   }
                 }}
                 disabled={availableLocations.length === 0 || comparedProperties.length >= 5}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  availableLocations.length === 0 || comparedProperties.length >= 5
+                  comparedProperties.length >= 5 || !selectedCity
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
+                title={!selectedCity ? 'Please select a city first' : comparedProperties.length >= 5 ? 'Maximum 5 locations can be compared' : 'Add a location to compare'}
               >
-                + Add City
+                + Add Location {availableLocations.length > 0 && `(${availableLocations.length} available)`}
               </button>
             </div>
           </div>
         </div>
 
-        {/* ROI Forecast */}
+        {/* Top Recommendations */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">ROI Forecast</h3>
           
@@ -432,15 +585,50 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        {/* Rental Yield Distribution */}
+        {/* Amenities Impact */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Rental Yield Distribution</h3>
-          
-          <div className="flex items-center mb-6">
-            <div className="text-4xl font-bold text-gray-900 mr-4">{rentalYield.average}%</div>
-            <div className="text-sm text-green-600">Average Yield +{rentalYield.change}%</div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Amenities Impact on Pricing</h3>
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+              + Add Chart
+            </button>
           </div>
-          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {amenitiesAnalysis.popularAmenities?.slice(0, 4).map((amenity, index) => (
+              <div key={index} className="text-center p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-semibold text-gray-900">{amenity._id}</h4>
+                <p className="text-sm text-gray-600">{amenity.count} properties</p>
+                <p className="text-sm text-green-600">₹{amenity.avgPrice?.toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6">
+            <h4 className="font-semibold text-gray-900 mb-4">Key Amenities Price Impact</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <h5 className="font-medium text-gray-900">With Lift</h5>
+                <p className="text-lg font-bold text-green-600">₹{amenitiesAnalysis.keyAmenitiesImpact?.avgPriceWithLift?.toLocaleString()}</p>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <h5 className="font-medium text-gray-900">With Parking</h5>
+                <p className="text-lg font-bold text-blue-600">₹{amenitiesAnalysis.keyAmenitiesImpact?.avgPriceWithParking?.toLocaleString()}</p>
+              </div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <h5 className="font-medium text-gray-900">With Security</h5>
+                <p className="text-lg font-bold text-purple-600">₹{amenitiesAnalysis.keyAmenitiesImpact?.avgPriceWithSecurity?.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Possession Status */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Possession Status Analysis</h3>
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+              + Add Chart
+            </button>
+          </div>
           <div className="h-48 bg-white rounded-lg border mb-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rentalYield.data}>
@@ -453,24 +641,18 @@ const AnalyticsPage = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          
-          <div className="flex space-x-2">
-            {['Residential', 'Commercial'].map((type) => (
-              <button
-                key={type}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  type === 'Residential'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {type}
-              </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {possessionStatus.slice(0, 2).map((status, index) => (
+              <div key={index} className="text-center p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-semibold text-gray-900">{status._id}</h4>
+                <p className="text-sm text-gray-600">{status.count} properties</p>
+                <p className="text-sm text-green-600">Avg: ₹{status.avgPrice?.toLocaleString()}</p>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Risk Dashboard */}
+        {/* Bedroom Analysis */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Risk Dashboard</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -485,15 +667,16 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        {/* Investment Hotspots */}
+        {/* Area vs Price Correlation */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Investment Hotspots</h3>
           <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
             <p className="text-gray-500">Interactive Map: San Francisco Investment Hotspots</p>
           </div>
+          <p className="text-sm text-gray-600 mt-2">Price correlation across different carpet area ranges</p>
         </div>
 
-        {/* Top Recommendations */}
+        {/* Neighborhood Rankings */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Recommendations</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -563,77 +746,49 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        {/* Extra Features */}
+        {/* Future Enhancements */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Extra Features</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-blue-600">📊</span>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">City Comparison</h4>
-                <p className="text-sm text-gray-600">Compare city trends side-by-side</p>
-              </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Future Enhancements</h3>
+          <p className="text-gray-600 mb-4">
+            The following advanced features are planned for future development and are yet to be integrated into the current system:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <h4 className="font-semibold text-blue-900 mb-2">Advanced Analytics</h4>
+              <p className="text-sm text-blue-700">Machine learning-driven price predictions and market trend analysis.</p>
             </div>
-            
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-blue-600">😊</span>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">Market Sentiment</h4>
-                <p className="text-sm text-gray-600">Overall market sentiment index</p>
-              </div>
+            <div className="p-4 bg-green-50 rounded-lg">
+              <h4 className="font-semibold text-green-900 mb-2">Real-time Data Integration</h4>
+              <p className="text-sm text-green-700">Live property listings and market data from multiple sources.</p>
             </div>
-            
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-blue-600">💰</span>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">Affordability Index</h4>
-                <p className="text-sm text-gray-600">Affordability index for different areas</p>
-              </div>
+            <div className="p-4 bg-purple-50 rounded-lg">
+              <h4 className="font-semibold text-purple-900 mb-2">Portfolio Management</h4>
+              <p className="text-sm text-purple-700">Comprehensive investment portfolio tracking and optimization tools.</p>
             </div>
-            
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-blue-600">↔️</span>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">Liquidity Score</h4>
-                <p className="text-sm text-gray-600">Property liquidity score</p>
-              </div>
+            <div className="p-4 bg-orange-50 rounded-lg">
+              <h4 className="font-semibold text-orange-900 mb-2">AI-Powered Recommendations</h4>
+              <p className="text-sm text-orange-700">Personalized investment suggestions based on user preferences and risk profile.</p>
+            </div>
+            <div className="p-4 bg-indigo-50 rounded-lg">
+              <h4 className="font-semibold text-indigo-900 mb-2">City Comparison</h4>
+              <p className="text-sm text-indigo-700">Compare city trends side-by-side for comprehensive market analysis.</p>
+            </div>
+            <div className="p-4 bg-pink-50 rounded-lg">
+              <h4 className="font-semibold text-pink-900 mb-2">Market Sentiment</h4>
+              <p className="text-sm text-pink-700">Overall market sentiment index for investment decision making.</p>
+            </div>
+            <div className="p-4 bg-teal-50 rounded-lg">
+              <h4 className="font-semibold text-teal-900 mb-2">Affordability Index</h4>
+              <p className="text-sm text-teal-700">Affordability index for different areas to guide budget planning.</p>
+            </div>
+            <div className="p-4 bg-yellow-50 rounded-lg">
+              <h4 className="font-semibold text-yellow-900 mb-2">Liquidity Score</h4>
+              <p className="text-sm text-yellow-700">Property liquidity score to assess ease of buying and selling.</p>
             </div>
           </div>
         </div>
 
-        {/* Custom Alerts */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Custom Alerts</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-blue-600">🔔</span>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">ROI Alerts</h4>
-                <p className="text-sm text-gray-600">Set alerts for ROI thresholds</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-blue-600">🔔</span>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">Price Drop Alerts</h4>
-                <p className="text-sm text-gray-600">Set alerts for price drops</p>
-              </div>
-            </div>
-          </div>
-        </div>
+
       </div>
     </div>
   );
