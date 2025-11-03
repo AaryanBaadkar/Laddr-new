@@ -715,14 +715,7 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        {/* Area vs Price Correlation */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Investment Hotspots</h3>
-          <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-            <p className="text-gray-500">Interactive Map: San Francisco Investment Hotspots</p>
-          </div>
-          <p className="text-sm text-gray-600 mt-2">Price correlation across different carpet area ranges</p>
-        </div>
+
 
         {/* Neighborhood Rankings */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">

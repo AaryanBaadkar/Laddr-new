@@ -614,15 +614,7 @@ const ComparePage = () => {
           >
             Download Report
           </button>
-          <button className="bg-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
-            Save to watchlist
-          </button>
-          <button className="bg-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
-            Share Comparison
-          </button>
-          <button className="bg-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
-            Request Consultation
-          </button>
+         
         </div>
       </div>
     </div>
