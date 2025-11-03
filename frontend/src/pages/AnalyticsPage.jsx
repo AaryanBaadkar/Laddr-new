@@ -392,7 +392,7 @@ const AnalyticsPage = () => {
                   onChange={(e) => setBudgetRange([budgetRange[0], parseInt(e.target.value)])}
                   className="flex-1"
                 />
-                <span className="text-sm text-gray-600">${budgetRange[1].toLocaleString()}</span>
+                <span className="text-sm text-gray-600">₹{budgetRange[1].toLocaleString()}</span>
               </div>
             </div>
           </div>
