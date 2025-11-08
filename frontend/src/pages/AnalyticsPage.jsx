@@ -637,9 +637,7 @@ const AnalyticsPage = () => {
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Amenities Impact on Pricing</h3>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-              + Add Chart
-            </button>
+            
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {amenitiesAnalysis.popularAmenities?.slice(0, 4).map((amenity, index) => (
@@ -673,9 +671,7 @@ const AnalyticsPage = () => {
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Possession Status Analysis</h3>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-              + Add Chart
-            </button>
+            
           </div>
           <div className="h-48 bg-white rounded-lg border mb-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -786,49 +782,6 @@ const AnalyticsPage = () => {
             </button>
           </div>
         </div>
-
-        {/* Future Enhancements */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Future Enhancements</h3>
-          <p className="text-gray-600 mb-4">
-            The following advanced features are planned for future development and are yet to be integrated into the current system:
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-semibold text-blue-900 mb-2">Advanced Analytics</h4>
-              <p className="text-sm text-blue-700">Machine learning-driven price predictions and market trend analysis.</p>
-            </div>
-            <div className="p-4 bg-green-50 rounded-lg">
-              <h4 className="font-semibold text-green-900 mb-2">Real-time Data Integration</h4>
-              <p className="text-sm text-green-700">Live property listings and market data from multiple sources.</p>
-            </div>
-            <div className="p-4 bg-purple-50 rounded-lg">
-              <h4 className="font-semibold text-purple-900 mb-2">Portfolio Management</h4>
-              <p className="text-sm text-purple-700">Comprehensive investment portfolio tracking and optimization tools.</p>
-            </div>
-            <div className="p-4 bg-orange-50 rounded-lg">
-              <h4 className="font-semibold text-orange-900 mb-2">AI-Powered Recommendations</h4>
-              <p className="text-sm text-orange-700">Personalized investment suggestions based on user preferences and risk profile.</p>
-            </div>
-            <div className="p-4 bg-indigo-50 rounded-lg">
-              <h4 className="font-semibold text-indigo-900 mb-2">City Comparison</h4>
-              <p className="text-sm text-indigo-700">Compare city trends side-by-side for comprehensive market analysis.</p>
-            </div>
-            <div className="p-4 bg-pink-50 rounded-lg">
-              <h4 className="font-semibold text-pink-900 mb-2">Market Sentiment</h4>
-              <p className="text-sm text-pink-700">Overall market sentiment index for investment decision making.</p>
-            </div>
-            <div className="p-4 bg-teal-50 rounded-lg">
-              <h4 className="font-semibold text-teal-900 mb-2">Affordability Index</h4>
-              <p className="text-sm text-teal-700">Affordability index for different areas to guide budget planning.</p>
-            </div>
-            <div className="p-4 bg-yellow-50 rounded-lg">
-              <h4 className="font-semibold text-yellow-900 mb-2">Liquidity Score</h4>
-              <p className="text-sm text-yellow-700">Property liquidity score to assess ease of buying and selling.</p>
-            </div>
-          </div>
-        </div>
-
 
       </div>
     </div>
