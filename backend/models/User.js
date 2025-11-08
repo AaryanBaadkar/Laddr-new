@@ -6,7 +6,6 @@ const userSchema = new mongoose.Schema({
   password: { type: String },
   googleId: { type: String },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
-  savedProperties: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Property' }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
