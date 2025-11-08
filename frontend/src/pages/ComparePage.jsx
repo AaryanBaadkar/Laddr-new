@@ -346,7 +346,7 @@ const ComparePage = () => {
             className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-colors ${
               properties.length >= 3
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-purple-600 text-white hover:bg-purple-700'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
           >
             +
